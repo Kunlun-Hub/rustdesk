@@ -1,0 +1,29 @@
+{
+  "name": "rustdesk-admin-server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Self-hosted RustDesk-compatible administration console.",
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:server dev:web",
+    "dev:server": "npm --workspace server run dev",
+    "dev:web": "npm --workspace web run dev",
+    "build": "npm --workspace server run build && npm --workspace web run build",
+    "test": "npm --workspaces --if-present run test",
+    "typecheck": "npm --workspaces run typecheck",
+    "lint": "npm --workspaces run lint",
+    "prisma:generate": "npm --workspace server run prisma:generate",
+    "prisma:migrate": "npm --workspace server run prisma:migrate",
+    "prisma:deploy": "npm --workspace server run prisma:deploy",
+    "seed": "npm --workspace server run seed",
+    "healthcheck": "npm --workspace server run healthcheck"
+  },
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "devDependencies": {
+    "npm-run-all": "^4.1.5",
+    "ts-api-utils": "^2.5.0"
+  }
+}

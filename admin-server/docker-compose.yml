@@ -1,0 +1,84 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rustdesk-admin-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rustdesk_admin
+      POSTGRES_USER: rustdesk
+      POSTGRES_PASSWORD: rustdesk
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rustdesk -d rustdesk_admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: rustdesk-admin-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://rustdesk:rustdesk@postgres:5432/rustdesk_admin?schema=public
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret}
+      SESSION_TTL: ${SESSION_TTL:-12h}
+      AUTH_RATE_LIMIT_WINDOW_SECONDS: ${AUTH_RATE_LIMIT_WINDOW_SECONDS:-60}
+      AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX:-20}
+      CLIENT_API_TOKEN: ${CLIENT_API_TOKEN:-}
+      SERVER_PORT: 21114
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:21114}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:5173,http://localhost:8080}
+      RECORDING_DIR: /data/recordings
+      RECORDING_UPLOAD_MAX_MB: ${RECORDING_UPLOAD_MAX_MB:-1024}
+      RECORDING_RETENTION_DAYS: ${RECORDING_RETENTION_DAYS:-90}
+      RECORDING_RETENTION_MAX_GB: ${RECORDING_RETENTION_MAX_GB:-0}
+      CONNECTION_STALE_AFTER_MINUTES: ${CONNECTION_STALE_AFTER_MINUTES:-1440}
+      DEVICE_OFFLINE_AFTER_SECONDS: ${DEVICE_OFFLINE_AFTER_SECONDS:-180}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123456}
+      ADDRESS_BOOK_SECRET_KEY: ${ADDRESS_BOOK_SECRET_KEY:-change-me-address-book-secret}
+      EXTERNAL_USER_DEFAULT_STATUS: ${EXTERNAL_USER_DEFAULT_STATUS:-UNVERIFIED}
+      EXTERNAL_USER_DEFAULT_ROLE: ${EXTERNAL_USER_DEFAULT_ROLE:-External User}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      WECHAT_CORP_ID: ${WECHAT_CORP_ID:-}
+      WECHAT_AGENT_ID: ${WECHAT_AGENT_ID:-}
+      WECHAT_SECRET: ${WECHAT_SECRET:-}
+      DINGTALK_APP_KEY: ${DINGTALK_APP_KEY:-}
+      DINGTALK_APP_SECRET: ${DINGTALK_APP_SECRET:-}
+    ports:
+      - "21114:21114"
+    volumes:
+      - recordings-data:/data/recordings
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:21114/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-http://localhost:21114}
+    container_name: rustdesk-admin-web
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_started
+    ports:
+      - "8080:80"
+
+volumes:
+  postgres-data:
+  recordings-data:

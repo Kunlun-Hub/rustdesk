@@ -1,5 +1,7 @@
 /build
 /target
+node_modules/
+**/node_modules/
 .vscode
 .idea
 .DS_Store

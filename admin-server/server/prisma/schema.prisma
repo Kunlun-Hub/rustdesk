@@ -1,0 +1,346 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  DISABLED
+  NORMAL
+  UNVERIFIED
+}
+
+enum AuthProviderType {
+  LOCAL
+  OIDC
+  WECOM
+  DINGTALK
+}
+
+enum DeviceStatus {
+  OFFLINE
+  ONLINE
+  DISABLED
+}
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  CREATE
+  UPDATE
+  DELETE
+  HEARTBEAT
+  SYSINFO
+  STRATEGY_PUSH
+  RECORD_UPLOAD
+  RECORD_DOWNLOAD
+  DISCONNECT
+  POLICY_APPLY
+  AUDIT_EXPORT
+  ADDRESS_BOOK_SYNC
+}
+
+enum RecordingStatus {
+  UPLOADING
+  COMPLETED
+  REMOVED
+  FAILED
+}
+
+enum StrategyApplyStatus {
+  PENDING
+  APPLIED
+  FAILED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String?    @unique
+  username     String     @unique
+  displayName  String?
+  avatar       String?
+  passwordHash String?
+  status       UserStatus @default(NORMAL)
+  isAdmin      Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  roles         UserRole[]
+  identities    IdentityProviderAccount[]
+  auditLogs     AuditLog[]
+  addressBooks  AddressBook[] @relation("AddressBookOwner")
+  addressBookShares AddressBookShare[]
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  description String?
+  roles       RolePermission[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model IdentityProvider {
+  id           String           @id @default(cuid())
+  type         AuthProviderType
+  name         String
+  issuerUrl    String?
+  clientId     String?
+  clientSecret String?
+  corpId       String?
+  agentId      String?
+  appKey       String?
+  appSecret    String?
+  enabled      Boolean          @default(false)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  accounts     IdentityProviderAccount[]
+
+  @@unique([type, name])
+}
+
+model IdentityProviderAccount {
+  id         String           @id @default(cuid())
+  providerId String
+  userId     String
+  subject    String
+  rawProfile Json?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  provider   IdentityProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, subject])
+}
+
+model DeviceGroup {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  devices     Device[]
+  strategies  StrategyAssignment[]
+}
+
+model Device {
+  id             String       @id @default(cuid())
+  rustdeskId     String       @unique
+  uuid           String?      @unique
+  hostname       String?
+  username       String?
+  platform       String?
+  os             String?
+  version        String?
+  ipAddress      String?
+  status         DeviceStatus @default(OFFLINE)
+  online         Boolean      @default(false)
+  lastSeenAt     DateTime?
+  clientTokenHash String?     @unique
+  clientTokenIssuedAt DateTime?
+  lastClientAuthAt DateTime?
+  sysinfo        Json?
+  sysinfoVersion Int          @default(0)
+  groupId        String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  group          DeviceGroup?       @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  heartbeats     DeviceHeartbeat[]
+  connections    ConnectionRecord[]
+  recordings     Recording[]
+  addressPeers   AddressBookPeer[]
+  strategyAssignments StrategyAssignment[]
+  strategyReceipts StrategyApplyReceipt[]
+}
+
+model DeviceHeartbeat {
+  id        String   @id @default(cuid())
+  deviceId  String
+  conns     Json?
+  payload   Json?
+  createdAt DateTime @default(now())
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, createdAt])
+}
+
+model ConnectionRecord {
+  id             String    @id @default(cuid())
+  deviceId       String?
+  connectionId   Int?
+  peerRustdeskId String?
+  direction      String?
+  startedAt      DateTime  @default(now())
+  endedAt        DateTime?
+  metadata       Json?
+  device         Device?   @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+}
+
+model Strategy {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  description   String?
+  configOptions Json     @default("{}")
+  extra         Json     @default("{}")
+  modifiedAt    Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  assignments   StrategyAssignment[]
+  receipts      StrategyApplyReceipt[]
+}
+
+model StrategyAssignment {
+  id        String       @id @default(cuid())
+  strategyId String
+  deviceId   String?
+  groupId    String?
+  createdAt  DateTime     @default(now())
+  strategy   Strategy     @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  device     Device?      @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  group      DeviceGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([strategyId, deviceId])
+  @@unique([strategyId, groupId])
+}
+
+model StrategyApplyReceipt {
+  id          String              @id @default(cuid())
+  deviceId    String
+  strategyId  String?
+  modifiedAt  Int                 @default(0)
+  hash        String?
+  status      StrategyApplyStatus @default(PENDING)
+  message     String?
+  metadata    Json?
+  appliedAt   DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  device      Device              @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  strategy    Strategy?           @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+
+  @@index([deviceId, updatedAt])
+  @@index([strategyId, updatedAt])
+}
+
+model AddressBook {
+  id          String   @id @default(cuid())
+  guid        String   @unique
+  name        String
+  ownerId     String?
+  shareRule   String   @default("read")
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  owner       User?    @relation("AddressBookOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  peers       AddressBookPeer[]
+  tags        AddressBookTag[]
+  shares      AddressBookShare[]
+}
+
+model AddressBookShare {
+  id            String      @id @default(cuid())
+  addressBookId String
+  userId        String
+  permission    String      @default("read")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  addressBook   AddressBook @relation(fields: [addressBookId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([addressBookId, userId])
+  @@index([userId])
+}
+
+model AddressBookPeer {
+  id          String      @id @default(cuid())
+  addressBookId String
+  deviceId    String?
+  rustdeskId  String
+  alias       String?
+  username    String?
+  hostname    String?
+  platform    String?
+  password    String?
+  note        String?
+  tags        String[]    @default([])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  addressBook AddressBook @relation(fields: [addressBookId], references: [id], onDelete: Cascade)
+  device      Device?     @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@unique([addressBookId, rustdeskId])
+}
+
+model AddressBookTag {
+  id            String      @id @default(cuid())
+  addressBookId String
+  name          String
+  color         String?
+  addressBook   AddressBook @relation(fields: [addressBookId], references: [id], onDelete: Cascade)
+
+  @@unique([addressBookId, name])
+}
+
+model Recording {
+  id          String          @id @default(cuid())
+  deviceId    String?
+  filename    String
+  path        String
+  sizeBytes   BigInt          @default(0)
+  status      RecordingStatus @default(UPLOADING)
+  startedAt   DateTime        @default(now())
+  completedAt DateTime?
+  metadata    Json?
+  device      Device?         @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([deviceId, startedAt])
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  actorUserId String?
+  action      AuditAction
+  resource    String
+  resourceId  String?
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?
+  previousHash String?
+  entryHash    String?   @unique
+  createdAt   DateTime    @default(now())
+  actor       User?       @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([action, createdAt])
+  @@index([resource, resourceId])
+}
