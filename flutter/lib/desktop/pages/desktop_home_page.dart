@@ -6,16 +6,21 @@ import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
+import 'package:flutter_hbb/common/hbbs/hbbs.dart';
 import 'package:flutter_hbb/common/widgets/animated_rotation_widget.dart';
+import 'package:flutter_hbb/common/widgets/autocomplete.dart';
 import 'package:flutter_hbb/common/widgets/custom_password.dart';
+import 'package:flutter_hbb/common/widgets/login.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/connection_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
 import 'package:flutter_hbb/desktop/widgets/update_progress.dart';
+import 'package:flutter_hbb/models/peer_model.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/server_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
+import 'package:flutter_hbb/models/user_model.dart';
 import 'package:flutter_hbb/plugin/ui_manager.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
 import 'package:flutter_hbb/utils/platform_channel.dart';
@@ -34,10 +39,30 @@ class DesktopHomePage extends StatefulWidget {
 }
 
 const borderColor = Color(0xFF2F65BA);
+const _enterpriseShellBg = Color(0xFF141519);
+const _enterpriseSidebarBg = Color(0xFF202126);
+const _enterpriseControlBg = Color(0xFF2A2C35);
+const _enterpriseLine = Color(0xFF343640);
+const _enterpriseText = Color(0xFFF5F6FA);
+const _enterpriseMuted = Color(0xFF9B9EA8);
+const _enterpriseAccent = Color(0xFF2F74FF);
+const _enterpriseDanger = Color(0xFFFF2E6F);
+const _enterpriseNavActive = Color(0xFF3A3A3F);
+
+enum _EnterprisePage {
+  assist,
+  devices,
+  login,
+}
 
 class _DesktopHomePageState extends State<DesktopHomePage>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   final _leftPaneScrollController = ScrollController();
+  final _enterpriseSearchController = TextEditingController();
+  final _loginUserController = TextEditingController();
+  final _loginPasswordController = TextEditingController();
+  final _loginUserFocusNode = FocusNode();
+  final AllPeersLoader _enterprisePeersLoader = AllPeersLoader();
 
   @override
   bool get wantKeepAlive => true;
@@ -53,22 +78,22 @@ class _DesktopHomePageState extends State<DesktopHomePage>
 
   final RxBool _editHover = false.obs;
   final RxBool _block = false.obs;
+  final RxBool _loginAuto = true.obs;
 
   final GlobalKey _childKey = GlobalKey();
+  _EnterprisePage _selectedEnterprisePage = _EnterprisePage.assist;
+  String? _loginUserError;
+  String? _loginPasswordError;
+  bool _loginInProgress = false;
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final isIncomingOnly = bind.isIncomingOnly();
-    return _buildBlock(
-        child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        buildLeftPane(context),
-        if (!isIncomingOnly) const VerticalDivider(width: 1),
-        if (!isIncomingOnly) Expanded(child: buildRightPane(context)),
-      ],
-    ));
+    if (isIncomingOnly) {
+      return _buildBlock(child: buildLeftPane(context));
+    }
+    return _buildBlock(child: buildEnterpriseShell(context));
   }
 
   Widget _buildBlock({required Widget child}) {
@@ -132,7 +157,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       value: gFFI.serverModel,
       child: Container(
         width: isIncomingOnly ? 280.0 : 200.0,
-        color: Theme.of(context).colorScheme.background,
+        color: Theme.of(context).colorScheme.surface,
         child: Stack(
           children: [
             Column(
@@ -185,6 +210,744 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       color: Theme.of(context).scaffoldBackgroundColor,
       child: ConnectionPage(),
     );
+  }
+
+  Widget buildEnterpriseShell(BuildContext context) {
+    return ChangeNotifierProvider.value(
+      value: gFFI.serverModel,
+      child: Container(
+        color: _enterpriseShellBg,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            buildEnterpriseSidebar(context),
+            Container(width: 1, color: _enterpriseLine.withOpacity(0.8)),
+            Expanded(
+              child: Column(
+                children: [
+                  buildEnterpriseTopBar(context),
+                  Expanded(child: buildEnterpriseContent(context)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildEnterpriseSidebar(BuildContext context) {
+    return Container(
+      width: 180,
+      color: _enterpriseSidebarBg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          buildEnterpriseAccountTile(context),
+          const SizedBox(height: 22),
+          buildEnterpriseNavItem(
+            icon: Icons.support_agent_outlined,
+            label: '远程协助',
+            page: _EnterprisePage.assist,
+          ),
+          buildEnterpriseNavItem(
+            icon: Icons.devices_other_outlined,
+            label: '设备',
+            page: _EnterprisePage.devices,
+          ),
+          Expanded(child: Container()),
+          InkWell(
+            onTap: () {
+              if (DesktopSettingPage.tabKeys.isNotEmpty) {
+                DesktopSettingPage.switch2page(DesktopSettingPage.tabKeys[0]);
+              } else {
+                DesktopTabPage.onAddSetting();
+              }
+            },
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 18, 22),
+              child: Row(
+                children: const [
+                  Icon(Icons.hexagon_outlined,
+                      color: _enterpriseMuted, size: 18),
+                  SizedBox(width: 10),
+                  Text('设置',
+                      style: TextStyle(color: _enterpriseMuted, fontSize: 14)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildEnterpriseAccountTile(BuildContext context) {
+    return Obx(() {
+      final isLogin = gFFI.userModel.isLogin;
+      final title = isLogin ? gFFI.userModel.displayNameOrUserName : '登录/注册';
+      return InkWell(
+        onTap: () {
+          if (isLogin) {
+            logOutConfirmDialog();
+          } else {
+            setState(() => _selectedEnterprisePage = _EnterprisePage.login);
+            Future.delayed(const Duration(milliseconds: 120), () {
+              if (mounted) _loginUserFocusNode.requestFocus();
+            });
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 20, 12, 10),
+          child: Row(
+            children: [
+              Container(
+                width: 33,
+                height: 33,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isLogin
+                      ? const Color(0xFF49505C)
+                      : const Color(0xFF676B72),
+                ),
+                child: Icon(
+                  isLogin ? Icons.star_rate_rounded : Icons.person_rounded,
+                  color: isLogin ? const Color(0xFFFF5F91) : Colors.white,
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _enterpriseText,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (isLogin)
+                      Row(
+                        children: [
+                          const Text('免费版',
+                              style: TextStyle(
+                                  color: _enterpriseText, fontSize: 12)),
+                          const SizedBox(width: 5),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: _enterpriseDanger,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: const Text('升级',
+                                style: TextStyle(
+                                    color: Colors.white, fontSize: 11)),
+                          )
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right,
+                  color: _enterpriseMuted, size: 18),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget buildEnterpriseNavItem({
+    required IconData icon,
+    required String label,
+    required _EnterprisePage page,
+  }) {
+    final selected = _selectedEnterprisePage == page;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(4),
+        onTap: () => setState(() => _selectedEnterprisePage = page),
+        child: Container(
+          height: 36,
+          decoration: BoxDecoration(
+            color: selected ? _enterpriseNavActive : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              Icon(icon,
+                  color: selected ? _enterpriseDanger : _enterpriseMuted,
+                  size: 18),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? _enterpriseDanger : _enterpriseText,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildEnterpriseTopBar(BuildContext context) {
+    return GestureDetector(
+      onPanStart: (_) => windowManager.startDragging(),
+      child: Container(
+        height: 56,
+        color: _enterpriseShellBg,
+        padding: const EdgeInsets.fromLTRB(112, 12, 18, 8),
+        child: Row(
+          children: [
+            Container(
+              width: 472,
+              height: 32,
+              decoration: BoxDecoration(
+                color: _enterpriseControlBg,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: TextField(
+                controller: _enterpriseSearchController,
+                onChanged: (_) => setState(() {}),
+                style: const TextStyle(color: _enterpriseText, fontSize: 13),
+                cursorColor: _enterpriseAccent,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  hintText: '搜索/连接设备',
+                  hintStyle: TextStyle(color: Color(0xFFA9B8E9)),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                ),
+              ).workaroundFreezeLinuxMint(),
+            ),
+            Expanded(child: Container()),
+            if (_selectedEnterprisePage == _EnterprisePage.login) ...[
+              const Icon(Icons.settings_outlined,
+                  color: _enterpriseMuted, size: 18),
+              const SizedBox(width: 6),
+              const Text('网络设置',
+                  style: TextStyle(color: _enterpriseMuted, fontSize: 13)),
+              const SizedBox(width: 22),
+              const Icon(Icons.notifications_none_rounded,
+                  color: _enterpriseMuted, size: 18),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildEnterpriseContent(BuildContext context) {
+    switch (_selectedEnterprisePage) {
+      case _EnterprisePage.devices:
+        return buildEnterpriseDevicesPage(context);
+      case _EnterprisePage.login:
+        return buildEnterpriseLoginPage(context);
+      case _EnterprisePage.assist:
+        return Container(
+          color: _enterpriseShellBg,
+          alignment: Alignment.topCenter,
+          child: const ConnectionPage(),
+        );
+    }
+  }
+
+  Widget buildEnterpriseDevicesPage(BuildContext context) {
+    if (_enterprisePeersLoader.needLoad) {
+      Future.delayed(Duration.zero, () => _enterprisePeersLoader.getAllPeers());
+    }
+    final query = _enterpriseSearchController.text.trim().toLowerCase();
+    final peers = _enterprisePeersLoader.peers.where((peer) {
+      if (query.isEmpty) return true;
+      return peer.id.toLowerCase().contains(query) ||
+          peer.hostname.toLowerCase().contains(query) ||
+          peer.username.toLowerCase().contains(query) ||
+          peer.alias.toLowerCase().contains(query);
+    }).toList();
+
+    return Container(
+      color: _enterpriseShellBg,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            width: 228,
+            padding: const EdgeInsets.fromLTRB(0, 8, 16, 0),
+            decoration: const BoxDecoration(
+              border: Border(
+                right: BorderSide(color: _enterpriseLine, width: 1),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('设备',
+                    style: TextStyle(
+                      color: _enterpriseText,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w700,
+                    )),
+                const SizedBox(height: 22),
+                buildEnterpriseDeviceFilter(
+                  icon: Icons.history_rounded,
+                  label: '最近',
+                  count: gFFI.recentPeersModel.peers.length,
+                  selected: false,
+                ),
+                buildEnterpriseDeviceFilter(
+                  icon: Icons.desktop_windows_outlined,
+                  label: '全部设备',
+                  count: peers.length + 1,
+                  selected: true,
+                ),
+                buildEnterpriseDeviceFilter(
+                  icon: Icons.badge_outlined,
+                  label: '识别码设备',
+                  count: 0,
+                  selected: false,
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 0, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: const [
+                      Text('全部设备',
+                          style:
+                              TextStyle(color: _enterpriseMuted, fontSize: 14)),
+                      Expanded(child: SizedBox()),
+                      Icon(Icons.refresh_rounded,
+                          color: _enterpriseMuted, size: 18),
+                      SizedBox(width: 20),
+                      Icon(Icons.filter_list_rounded,
+                          color: _enterpriseMuted, size: 18),
+                      SizedBox(width: 20),
+                      Icon(Icons.tune_rounded,
+                          color: _enterpriseMuted, size: 18),
+                      SizedBox(width: 20),
+                      Icon(Icons.view_list_rounded,
+                          color: _enterpriseMuted, size: 18),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+                  buildEnterpriseDeviceHeader(),
+                  const SizedBox(height: 8),
+                  buildEnterpriseLocalDeviceRow(),
+                  Expanded(
+                    child: peers.isEmpty
+                        ? Center(
+                            child: Text(
+                              query.isEmpty ? '暂无设备' : '没有匹配的设备',
+                              style: const TextStyle(
+                                  color: _enterpriseMuted, fontSize: 14),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: peers.length,
+                            itemBuilder: (context, index) {
+                              return buildEnterprisePeerRow(peers[index]);
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildEnterpriseDeviceFilter({
+    required IconData icon,
+    required String label,
+    required int count,
+    required bool selected,
+  }) {
+    return Container(
+      height: 40,
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: selected ? const Color(0xFF20335F) : Colors.transparent,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: _enterpriseAccent, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(label,
+                style: TextStyle(
+                    color: selected ? _enterpriseText : _enterpriseMuted,
+                    fontSize: 14,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400)),
+          ),
+          Text('$count',
+              style: const TextStyle(color: _enterpriseMuted, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Widget buildEnterpriseDeviceHeader() {
+    return Container(
+      height: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        children: const [
+          Expanded(
+            flex: 5,
+            child: Text('设备名',
+                style: TextStyle(color: _enterpriseMuted, fontSize: 12)),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text('备注',
+                style: TextStyle(color: _enterpriseMuted, fontSize: 12)),
+          ),
+          SizedBox(
+            width: 70,
+            child: Text('操作',
+                textAlign: TextAlign.right,
+                style: TextStyle(color: _enterpriseMuted, fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildEnterpriseLocalDeviceRow() {
+    return Consumer<ServerModel>(
+      builder: (context, model, _) {
+        final hostname = Platform.localHostname;
+        return buildEnterpriseDeviceRow(
+          name: hostname.isEmpty ? model.serverId.text : hostname,
+          note: '本机',
+          online: true,
+          muted: false,
+          onConnect: null,
+        );
+      },
+    );
+  }
+
+  Widget buildEnterprisePeerRow(Peer peer) {
+    final name = peer.alias.isNotEmpty
+        ? peer.alias
+        : (peer.hostname.isNotEmpty ? peer.hostname : peer.id);
+    final user = peer.username.isEmpty ? '-' : peer.username;
+    return buildEnterpriseDeviceRow(
+      name: name,
+      note: user,
+      online: peer.online,
+      muted: false,
+      onConnect: () => connect(context, peer.id),
+    );
+  }
+
+  Widget buildEnterpriseDeviceRow({
+    required String name,
+    required String note,
+    required bool online,
+    required bool muted,
+    required VoidCallback? onConnect,
+  }) {
+    final color = muted ? _enterpriseMuted.withOpacity(0.5) : _enterpriseText;
+    return InkWell(
+      onDoubleTap: onConnect,
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 5,
+              child: Row(
+                children: [
+                  Icon(Icons.grid_view_rounded,
+                      color: online
+                          ? const Color(0xFF20CE54)
+                          : _enterpriseMuted.withOpacity(0.45),
+                      size: 14),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: color, fontSize: 15),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Text(
+                note,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: _enterpriseMuted, fontSize: 14),
+              ),
+            ),
+            SizedBox(
+              width: 70,
+              child: TextButton(
+                onPressed: onConnect,
+                child: const Text('-',
+                    style: TextStyle(color: _enterpriseText, fontSize: 14)),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildEnterpriseLoginPage(BuildContext context) {
+    return Container(
+      color: _enterpriseShellBg,
+      alignment: Alignment.topCenter,
+      padding: const EdgeInsets.only(top: 70),
+      child: SizedBox(
+        width: 362,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              '账号密码登录',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: _enterpriseText,
+                fontSize: 25,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 44),
+            buildEnterpriseLoginField(
+              controller: _loginUserController,
+              focusNode: _loginUserFocusNode,
+              icon: Icons.person_outline_rounded,
+              hint: '请输入账号',
+              errorText: _loginUserError,
+              obscure: false,
+              onSubmitted: (_) => enterpriseLogin(),
+            ),
+            const SizedBox(height: 12),
+            buildEnterpriseLoginField(
+              controller: _loginPasswordController,
+              icon: Icons.lock_outline_rounded,
+              hint: '请输入密码',
+              errorText: _loginPasswordError,
+              obscure: true,
+              onSubmitted: (_) => enterpriseLogin(),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              height: 44,
+              child: ElevatedButton(
+                onPressed: _loginInProgress ? null : enterpriseLogin,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF92B4F4),
+                  disabledBackgroundColor:
+                      const Color(0xFF92B4F4).withOpacity(0.55),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  elevation: 0,
+                ),
+                child: _loginInProgress
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text('立即登录',
+                        style: TextStyle(color: Colors.white, fontSize: 14)),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Obx(() => Checkbox(
+                      value: _loginAuto.value,
+                      activeColor: _enterpriseAccent,
+                      onChanged: (value) => _loginAuto.value = value ?? true,
+                    )),
+                const Text('自动登录',
+                    style: TextStyle(color: _enterpriseText, fontSize: 14)),
+                Expanded(child: Container()),
+                TextButton(
+                  onPressed: loginDialog,
+                  child: const Text('立即注册',
+                      style: TextStyle(color: _enterpriseAccent, fontSize: 14)),
+                ),
+                const Text('|',
+                    style: TextStyle(color: _enterpriseMuted, fontSize: 14)),
+                TextButton(
+                  onPressed: loginDialog,
+                  child: const Text('忘记密码',
+                      style: TextStyle(color: _enterpriseAccent, fontSize: 14)),
+                ),
+              ],
+            ),
+            Expanded(child: Container()),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.check_box_outline_blank_rounded,
+                    color: _enterpriseMuted, size: 16),
+                SizedBox(width: 7),
+                Text('我已阅读并同意',
+                    style: TextStyle(color: _enterpriseMuted, fontSize: 13)),
+                Text('《用户许可协议》',
+                    style: TextStyle(color: _enterpriseAccent, fontSize: 13)),
+                Text('和',
+                    style: TextStyle(color: _enterpriseMuted, fontSize: 13)),
+                Text('《隐私政策》',
+                    style: TextStyle(color: _enterpriseAccent, fontSize: 13)),
+              ],
+            ).marginOnly(bottom: 30),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildEnterpriseLoginField({
+    required TextEditingController controller,
+    required IconData icon,
+    required String hint,
+    required bool obscure,
+    FocusNode? focusNode,
+    String? errorText,
+    ValueChanged<String>? onSubmitted,
+  }) {
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      obscureText: obscure,
+      enableSuggestions: !obscure,
+      autocorrect: false,
+      style: const TextStyle(color: _enterpriseText, fontSize: 14),
+      cursorColor: _enterpriseAccent,
+      onChanged: (_) {
+        if (_loginUserError != null || _loginPasswordError != null) {
+          setState(() {
+            _loginUserError = null;
+            _loginPasswordError = null;
+          });
+        }
+      },
+      onSubmitted: onSubmitted,
+      decoration: InputDecoration(
+        errorText: errorText,
+        prefixIcon: Icon(icon, color: _enterpriseMuted, size: 18),
+        suffixIcon: obscure
+            ? const Icon(Icons.visibility_off_outlined,
+                color: _enterpriseMuted, size: 17)
+            : null,
+        hintText: hint,
+        hintStyle: const TextStyle(color: _enterpriseMuted, fontSize: 14),
+        filled: true,
+        fillColor: Colors.transparent,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(5),
+          borderSide: const BorderSide(color: Color(0xFF454750)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(5),
+          borderSide: const BorderSide(color: _enterpriseAccent),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(5),
+          borderSide: const BorderSide(color: _enterpriseDanger),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(5),
+          borderSide: const BorderSide(color: _enterpriseDanger),
+        ),
+      ),
+    ).workaroundFreezeLinuxMint();
+  }
+
+  Future<void> enterpriseLogin() async {
+    final username = _loginUserController.text.trim();
+    final password = _loginPasswordController.text;
+    if (username.isEmpty || password.isEmpty) {
+      setState(() {
+        _loginUserError =
+            username.isEmpty ? translate('Username missed') : null;
+        _loginPasswordError =
+            password.isEmpty ? translate('Password missed') : null;
+      });
+      return;
+    }
+
+    setState(() => _loginInProgress = true);
+    try {
+      final resp = await gFFI.userModel.login(LoginRequest(
+        username: username,
+        password: password,
+        id: await bind.mainGetMyId(),
+        uuid: await bind.mainGetUuid(),
+        autoLogin: _loginAuto.value,
+        type: HttpType.kAuthReqTypeAccount,
+      ));
+      if (resp.type == HttpType.kAuthResTypeToken &&
+          resp.access_token != null) {
+        await bind.mainSetLocalOption(
+            key: 'access_token', value: resp.access_token!);
+        if (resp.user != null) {
+          await bind.mainSetLocalOption(
+              key: 'user_info', value: jsonEncode(resp.user));
+        }
+        await UserModel.updateOtherModels();
+        _loginPasswordController.clear();
+        if (mounted) {
+          setState(() {
+            _selectedEnterprisePage = _EnterprisePage.assist;
+            _loginUserError = null;
+            _loginPasswordError = null;
+          });
+        }
+      } else {
+        setState(() => _loginPasswordError = translate('Failed'));
+      }
+    } on RequestException catch (err) {
+      setState(() => _loginPasswordError = translate(err.cause));
+    } catch (err) {
+      setState(() => _loginPasswordError = 'Unknown Error: $err');
+    } finally {
+      if (mounted) {
+        setState(() => _loginInProgress = false);
+      }
+    }
   }
 
   buildIDBoard(BuildContext context) {
@@ -267,7 +1030,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             radius: 15,
             backgroundColor: hover.value
                 ? Theme.of(context).scaffoldBackgroundColor
-                : Theme.of(context).colorScheme.background,
+                : Theme.of(context).colorScheme.surface,
             child: Icon(
               Icons.more_vert_outlined,
               size: 20,
@@ -697,6 +1460,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   @override
   void initState() {
     super.initState();
+    _enterprisePeersLoader.init(setState);
     _updateTimer = periodic_immediate(const Duration(seconds: 1), () async {
       await gFFI.serverModel.fetchID();
       final error = await bind.mainGetError();
@@ -767,7 +1531,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
 
     bool isChattyMethod(String methodName) {
       switch (methodName) {
-        case kWindowBumpMouse: return true;
+        case kWindowBumpMouse:
+          return true;
       }
 
       return false;
@@ -776,7 +1541,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
       if (!isChattyMethod(call.method)) {
         debugPrint(
-          "[Main] call ${call.method} with args ${call.arguments} from window $fromWindowId");
+            "[Main] call ${call.method} with args ${call.arguments} from window $fromWindowId");
       }
       if (call.method == kWindowMainWindowOnTop) {
         windowOnTop(null);
@@ -811,9 +1576,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           connToken: call.arguments['connToken'],
         );
       } else if (call.method == kWindowBumpMouse) {
-        return RdPlatformChannel.instance.bumpMouse(
-          dx: call.arguments['dx'],
-          dy: call.arguments['dy']);
+        return RdPlatformChannel.instance
+            .bumpMouse(dx: call.arguments['dx'], dy: call.arguments['dy']);
       } else if (call.method == kWindowEventMoveTabToNewWindow) {
         final args = call.arguments.split(',');
         int? windowId;
@@ -877,6 +1641,12 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   @override
   void dispose() {
     _uniLinksSubscription?.cancel();
+    _enterprisePeersLoader.clear();
+    _leftPaneScrollController.dispose();
+    _enterpriseSearchController.dispose();
+    _loginUserController.dispose();
+    _loginPasswordController.dispose();
+    _loginUserFocusNode.dispose();
     Get.delete<RxBool>(tag: 'stop-service');
     _updateTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
@@ -1104,8 +1874,8 @@ void setPasswordDialog({VoidCallback? notEmptyCallback}) async {
             }
             close();
           },
-          buttonStyle: ButtonStyle(
-              backgroundColor: MaterialStatePropertyAll(Colors.red)),
+          buttonStyle:
+              ButtonStyle(backgroundColor: WidgetStatePropertyAll(Colors.red)),
         );
         final okButton = dialogButton(
           "OK",

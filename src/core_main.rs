@@ -506,13 +506,21 @@ pub fn core_main() -> Option<Vec<String>> {
                     };
                     if let Ok(lic) = crate::custom_server::get_custom_server_from_string(&name) {
                         if !lic.host.is_empty() {
-                            crate::ui_interface::set_option("key".into(), lic.key);
-                            crate::ui_interface::set_option(
-                                "custom-rendezvous-server".into(),
-                                lic.host,
-                            );
-                            crate::ui_interface::set_option("api-server".into(), lic.api);
-                            crate::ui_interface::set_option("relay-server".into(), lic.relay);
+                            if !is_locked_server_option("key") {
+                                crate::ui_interface::set_option("key".into(), lic.key);
+                            }
+                            if !is_locked_server_option("custom-rendezvous-server") {
+                                crate::ui_interface::set_option(
+                                    "custom-rendezvous-server".into(),
+                                    lic.host,
+                                );
+                            }
+                            if !is_locked_server_option("api-server") {
+                                crate::ui_interface::set_option("api-server".into(), lic.api);
+                            }
+                            if !is_locked_server_option("relay-server") {
+                                crate::ui_interface::set_option("relay-server".into(), lic.relay);
+                            }
                         }
                     }
                 } else {
@@ -527,9 +535,17 @@ pub fn core_main() -> Option<Vec<String>> {
             }
             if crate::platform::is_installed() && is_root() {
                 if args.len() == 2 {
-                    let options = crate::ipc::get_options();
-                    println!("{}", options.get(&args[1]).unwrap_or(&"".to_owned()));
+                    if is_locked_server_option(&args[1]) {
+                        println!("{}", crate::ui_interface::get_option(&args[1]));
+                    } else {
+                        let options = crate::ipc::get_options();
+                        println!("{}", options.get(&args[1]).unwrap_or(&"".to_owned()));
+                    }
                 } else if args.len() == 3 {
+                    if is_locked_server_option(&args[1]) {
+                        println!("Option {} is locked by build configuration!", args[1]);
+                        return None;
+                    }
                     crate::ipc::set_option(&args[1], &args[2]);
                 }
             } else {
@@ -973,6 +989,11 @@ fn is_cli_setting_change_disabled() -> bool {
     let allow_command_line_settings =
         config::option2bool(option, &crate::get_builtin_option(option));
     config::is_disable_settings() && !allow_command_line_settings
+}
+
+#[inline]
+fn is_locked_server_option(key: &str) -> bool {
+    crate::relay_pool::is_locked_server_option(key)
 }
 
 #[cfg(test)]

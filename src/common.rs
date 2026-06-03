@@ -626,7 +626,7 @@ pub fn test_nat_type() {
 async fn test_nat_type_() -> ResultType<bool> {
     log::info!("Testing nat ...");
     let start = std::time::Instant::now();
-    let server1 = Config::get_rendezvous_server();
+    let server1 = preferred_rendezvous_server();
     let server2 = crate::increase_port(&server1, -1);
     let mut msg_out = RendezvousMessage::new();
     let serial = Config::get_serial();
@@ -684,14 +684,19 @@ async fn test_nat_type_() -> ResultType<bool> {
 }
 
 pub async fn get_rendezvous_server(ms_timeout: u64) -> (String, Vec<String>, bool) {
+    if !crate::relay_pool::built_in_id_server().is_empty() {
+        return (preferred_rendezvous_server(), Vec::new(), true);
+    }
     #[cfg(any(target_os = "android", target_os = "ios"))]
     let (mut a, mut b) = get_rendezvous_server_(ms_timeout);
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let (mut a, mut b) = get_rendezvous_server_(ms_timeout).await;
     #[cfg(windows)]
-    if let Ok(lic) = crate::platform::get_license_from_exe_name() {
-        if !lic.host.is_empty() {
-            a = lic.host;
+    if crate::relay_pool::built_in_id_server().is_empty() {
+        if let Ok(lic) = crate::platform::get_license_from_exe_name() {
+            if !lic.host.is_empty() {
+                a = lic.host;
+            }
         }
     }
     let mut b: Vec<String> = b
@@ -712,8 +717,8 @@ pub async fn get_rendezvous_server(ms_timeout: u64) -> (String, Vec<String>, boo
 #[cfg(any(target_os = "android", target_os = "ios"))]
 fn get_rendezvous_server_(_ms_timeout: u64) -> (String, Vec<String>) {
     (
-        Config::get_rendezvous_server(),
-        Config::get_rendezvous_servers(),
+        preferred_rendezvous_server(),
+        preferred_rendezvous_servers(),
     )
 }
 
@@ -738,7 +743,7 @@ pub async fn get_nat_type(ms_timeout: u64) -> i32 {
 // used for client to test which server is faster in case stop-servic=Y
 #[tokio::main(flavor = "current_thread")]
 async fn test_rendezvous_server_() {
-    let servers = Config::get_rendezvous_servers();
+    let servers = preferred_rendezvous_servers();
     if servers.len() <= 1 {
         return;
     }
@@ -1029,6 +1034,10 @@ pub fn is_setup(name: &str) -> bool {
 }
 
 pub fn get_custom_rendezvous_server(custom: String) -> String {
+    let built_in_server = crate::relay_pool::built_in_id_server();
+    if !built_in_server.is_empty() {
+        return built_in_server;
+    }
     #[cfg(windows)]
     if let Ok(lic) = crate::platform::windows::get_license_from_exe_name() {
         if !lic.host.is_empty() {
@@ -1063,6 +1072,10 @@ pub fn get_api_server(api: String, custom: String) -> String {
 }
 
 fn get_api_server_(api: String, custom: String) -> String {
+    let built_in_api = crate::relay_pool::built_in_api_server();
+    if !built_in_api.is_empty() {
+        return built_in_api;
+    }
     #[cfg(windows)]
     if let Ok(lic) = crate::platform::windows::get_license_from_exe_name() {
         if !lic.api.is_empty() {
@@ -1086,8 +1099,54 @@ fn get_api_server_(api: String, custom: String) -> String {
 
 #[inline]
 pub fn is_public(url: &str) -> bool {
-    let url = url.to_ascii_lowercase();
-    url.contains("rustdesk.com/") || url.ends_with("rustdesk.com")
+    let url = url.trim().to_ascii_lowercase();
+    if url.is_empty() {
+        return false;
+    }
+    let host = if let Ok(parsed) = url::Url::parse(&url) {
+        parsed.host_str().unwrap_or("").to_owned()
+    } else {
+        let authority = url
+            .split('/')
+            .next()
+            .unwrap_or_default()
+            .rsplit('@')
+            .next()
+            .unwrap_or_default();
+        authority.split(':').next().unwrap_or_default().to_owned()
+    };
+    host == "rustdesk.com"
+        || host.ends_with(".rustdesk.com")
+        || host.strip_prefix("www.") == Some("rustdesk.com")
+}
+
+#[inline]
+pub fn preferred_rendezvous_server() -> String {
+    let custom = get_custom_rendezvous_server(Config::get_option("custom-rendezvous-server"));
+    if !custom.is_empty() {
+        return socket_client::check_port(custom, RENDEZVOUS_PORT);
+    }
+    socket_client::check_port(Config::get_rendezvous_server(), RENDEZVOUS_PORT)
+}
+
+#[inline]
+pub fn preferred_rendezvous_servers() -> Vec<String> {
+    let custom = get_custom_rendezvous_server(Config::get_option("custom-rendezvous-server"));
+    if !custom.is_empty() {
+        return vec![socket_client::check_port(custom, RENDEZVOUS_PORT)];
+    }
+    let servers = Config::get_rendezvous_servers();
+    if servers.is_empty() {
+        vec![socket_client::check_port(
+            Config::get_rendezvous_server(),
+            RENDEZVOUS_PORT,
+        )]
+    } else {
+        servers
+            .into_iter()
+            .map(|server| socket_client::check_port(server, RENDEZVOUS_PORT))
+            .collect()
+    }
 }
 
 pub fn get_udp_punch_enabled() -> bool {
@@ -1108,7 +1167,7 @@ pub fn get_local_option(key: &str) -> String {
     let v = LocalConfig::get_option(key);
     if key == keys::OPTION_ENABLE_UDP_PUNCH || key == keys::OPTION_ENABLE_IPV6_PUNCH {
         if v.is_empty() {
-            if !is_public(&Config::get_rendezvous_server()) {
+            if !is_public(&preferred_rendezvous_server()) {
                 return "N".to_owned();
             }
         }
@@ -1182,7 +1241,7 @@ fn tcp_proxy_log_target(url: &str) -> String {
 
 #[inline]
 fn get_tcp_proxy_addr() -> String {
-    check_port(Config::get_rendezvous_server(), RENDEZVOUS_PORT)
+    preferred_rendezvous_server()
 }
 
 /// Send an HTTP request via the rendezvous server's TCP proxy using protobuf.
@@ -1803,6 +1862,10 @@ pub fn decode64<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, base64::DecodeError
 }
 
 pub async fn get_key(sync: bool) -> String {
+    let built_in_key = crate::relay_pool::built_in_key();
+    if !built_in_key.is_empty() {
+        return built_in_key;
+    }
     #[cfg(windows)]
     if let Ok(lic) = crate::platform::windows::get_license_from_exe_name() {
         if !lic.key.is_empty() {
@@ -2089,6 +2152,7 @@ pub fn load_custom_client() {
     }
     let Some(path) = std::env::current_exe().map_or(None, |x| x.parent().map(|x| x.to_path_buf()))
     else {
+        crate::relay_pool::apply_built_in_client_config();
         return;
     };
     #[cfg(target_os = "macos")]
@@ -2097,10 +2161,13 @@ pub fn load_custom_client() {
     if path.is_file() {
         let Ok(data) = std::fs::read_to_string(&path) else {
             log::error!("Failed to read custom client config");
+            crate::relay_pool::apply_built_in_client_config();
             return;
         };
         read_custom_client(&data.trim());
+        return;
     }
+    crate::relay_pool::apply_built_in_client_config();
 }
 
 fn read_custom_client_advanced_settings(
@@ -2182,21 +2249,25 @@ pub fn get_dst_align_rgba() -> usize {
 pub fn read_custom_client(config: &str) {
     let Ok(data) = decode64(config) else {
         log::error!("Failed to decode custom client config");
+        crate::relay_pool::apply_built_in_client_config();
         return;
     };
     const KEY: &str = "5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=";
     let Some(pk) = get_rs_pk(KEY) else {
         log::error!("Failed to parse public key of custom client");
+        crate::relay_pool::apply_built_in_client_config();
         return;
     };
     let Ok(data) = sign::verify(&data, &pk) else {
         log::error!("Failed to dec custom client config");
+        crate::relay_pool::apply_built_in_client_config();
         return;
     };
     let Ok(mut data) =
         serde_json::from_slice::<std::collections::HashMap<String, serde_json::Value>>(&data)
     else {
         log::error!("Failed to parse custom client config");
+        crate::relay_pool::apply_built_in_client_config();
         return;
     };
 
@@ -2250,6 +2321,7 @@ pub fn read_custom_client(config: &str) {
                 .insert(k, v.to_owned());
         };
     }
+    crate::relay_pool::apply_built_in_client_config();
 }
 
 #[inline]
@@ -2769,6 +2841,8 @@ mod tests {
         assert!(is_public("https://api.rustdesk.com/v1"));
         assert!(is_public("https://API.RUSTDESK.COM/v1"));
         assert!(is_public("https://rustdesk.com/path"));
+        assert!(is_public("https://api.rustdesk.com:21114/v1"));
+        assert!(is_public("rustdesk.com:21116"));
 
         // Test URLs ending with "rustdesk.com"
         assert!(is_public("rustdesk.com"));
@@ -2784,6 +2858,7 @@ mod tests {
         assert!(!is_public("localhost"));
         assert!(!is_public("https://rustdesk.computer.com"));
         assert!(!is_public("rustdesk.comhello.com"));
+        assert!(!is_public("rustdesk.computer.com:21116"));
     }
 
     #[test]

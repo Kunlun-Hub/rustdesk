@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 const TIME_HEARTBEAT: Duration = Duration::from_secs(15);
+const TIME_RELAY_SYNC: Duration = Duration::from_secs(300);
 const UPLOAD_SYSINFO_TIMEOUT: Duration = Duration::from_secs(120);
 const TIME_CONN: Duration = Duration::from_secs(3);
 
@@ -57,6 +58,23 @@ struct InfoUploaded {
     username: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum RelayListResponse {
+    List(Vec<String>),
+    Object(RelayListObject),
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct RelayListObject {
+    #[serde(default)]
+    relays: Vec<String>,
+    #[serde(default)]
+    servers: Vec<String>,
+    #[serde(default)]
+    list: Vec<String>,
+}
+
 impl Default for InfoUploaded {
     fn default() -> Self {
         Self {
@@ -81,6 +99,23 @@ impl InfoUploaded {
     }
 }
 
+fn current_relay_list_url() -> String {
+    let built_in = crate::relay_pool::relay_list_url();
+    if !built_in.is_empty() {
+        return built_in;
+    }
+
+    let api_server = crate::common::get_api_server(
+        Config::get_option("api-server"),
+        Config::get_option("custom-rendezvous-server"),
+    );
+    if api_server.is_empty() {
+        return String::new();
+    }
+
+    format!("{}/relay/list.json", api_server.trim_end_matches('/'))
+}
+
 #[cfg(not(any(target_os = "ios")))]
 #[tokio::main(flavor = "current_thread")]
 async fn start_hbbs_sync_async() {
@@ -89,11 +124,34 @@ async fn start_hbbs_sync_async() {
         TIME_CONN,
     ));
     let mut last_sent: Option<Instant> = None;
+    let mut last_relay_sync: Option<Instant> = None;
+    let mut last_relay_url = String::new();
     let mut info_uploaded = InfoUploaded::default();
     let mut sysinfo_ver = "".to_owned();
+
+    let initial_relay_url = current_relay_list_url();
+    if !initial_relay_url.is_empty() && !crate::is_public(&initial_relay_url) {
+        let _ = refresh_relay_servers(&initial_relay_url).await;
+        last_relay_sync = Some(Instant::now());
+        last_relay_url = initial_relay_url;
+    }
+
     loop {
         tokio::select! {
             _ = interval.tick() => {
+                let relay_url = current_relay_list_url();
+                let should_refresh_relays =
+                    !relay_url.is_empty()
+                        && !crate::is_public(&relay_url)
+                        && (relay_url != last_relay_url
+                            || last_relay_sync
+                                .map(|x| x.elapsed() >= TIME_RELAY_SYNC)
+                                .unwrap_or(true));
+                if should_refresh_relays {
+                    let _ = refresh_relay_servers(&relay_url).await;
+                    last_relay_sync = Some(Instant::now());
+                    last_relay_url = relay_url;
+                }
                 let url = heartbeat_url();
                 let id = Config::get_id();
                 if url.is_empty() {
@@ -271,6 +329,68 @@ async fn start_hbbs_sync_async() {
             }
         }
     }
+}
+
+async fn refresh_relay_servers(url: &str) -> bool {
+    if url.is_empty() || crate::is_public(&url) {
+        return false;
+    }
+
+    let client = crate::hbbs_http::create_http_client_async_with_url(&url).await;
+    let response = match client
+        .get(&url)
+        .timeout(Duration::from_secs(10))
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(err) => {
+            log::warn!("failed to fetch relay list from {}: {}", url, err);
+            return false;
+        }
+    };
+
+    if !response.status().is_success() {
+        log::warn!(
+            "failed to fetch relay list from {}: status {}",
+            url,
+            response.status()
+        );
+        return false;
+    }
+
+    let body = match response.text().await {
+        Ok(body) => body,
+        Err(err) => {
+            log::warn!("failed to read relay list body from {}: {}", url, err);
+            return false;
+        }
+    };
+
+    let relays = match serde_json::from_str::<RelayListResponse>(&body) {
+        Ok(RelayListResponse::List(relays)) => relays,
+        Ok(RelayListResponse::Object(payload)) => {
+            let mut relays = payload.relays;
+            relays.extend(payload.servers);
+            relays.extend(payload.list);
+            relays
+        }
+        Err(err) => {
+            log::warn!("failed to parse relay list from {}: {}", url, err);
+            return false;
+        }
+    };
+
+    if relays.is_empty() {
+        log::warn!(
+            "relay list from {} is empty, keeping existing relay pool",
+            url
+        );
+        return false;
+    }
+
+    crate::relay_pool::set_relay_servers(relays);
+    true
 }
 
 fn heartbeat_url() -> String {

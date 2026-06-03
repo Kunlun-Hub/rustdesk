@@ -2376,12 +2376,14 @@ List<String>? urlLinkToCmdArgs(Uri uri) {
     id = uri.path.substring("/new/".length);
   } else if (uri.authority == "config") {
     if (isAndroid || isIOS) {
+      final hideServerSettings =
+          bind.mainGetBuildinOption(key: kOptionHideServerSetting) == 'Y';
       final allowDeepLinkServerSettings =
           bind.mainGetBuildinOption(key: kOptionAllowDeepLinkServerSettings) ==
               'Y';
-      if (!allowDeepLinkServerSettings) {
+      if (hideServerSettings || !allowDeepLinkServerSettings) {
         debugPrint(
-            "Ignore rustdesk://config because $kOptionAllowDeepLinkServerSettings is not enabled.");
+            "Ignore rustdesk://config because server settings are locked or $kOptionAllowDeepLinkServerSettings is not enabled.");
         // Keep the user-facing error generic; detailed rejection reason is in debug logs.
         // Delay toast to avoid missing overlay during cold-start deeplink handling.
         Timer(Duration(seconds: 1), () {
@@ -3542,6 +3544,9 @@ Future<bool> setServerConfig(
   List<RxString>? errMsgs,
   ServerConfig config,
 ) async {
+  if (bind.mainGetBuildinOption(key: kOptionHideServerSetting) == 'Y') {
+    return false;
+  }
   String removeEndSlash(String input) {
     if (input.endsWith('/')) {
       return input.substring(0, input.length - 1);

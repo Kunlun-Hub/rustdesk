@@ -114,8 +114,9 @@ class UserModel {
   _updateLocalUserInfo() {
     final userInfo = getLocalUserInfo();
     if (userInfo != null) {
-      userName.value = (userInfo['name'] ?? '').toString();
-      displayName.value = (userInfo['display_name'] ?? '').toString();
+      userName.value = (userInfo['name'] ?? userInfo['username'] ?? '').toString();
+      displayName.value =
+          (userInfo['display_name'] ?? userInfo['displayName'] ?? '').toString();
       avatar.value = (userInfo['avatar'] ?? '').toString();
     }
   }
@@ -224,8 +225,32 @@ class UserModel {
       final url = await bind.mainGetApiServer();
       if (url.trim().isEmpty) return [];
       final resp = await http.get(Uri.parse('$url/api/login-options'));
+      final decoded = jsonDecode(resp.body);
+      if (decoded is Map<String, dynamic>) {
+        final providers = <dynamic>[];
+        for (final key in ['oidc', 'wecom', 'dingtalk']) {
+          final value = decoded[key];
+          if (value is List) {
+            providers.addAll(value.map((item) {
+              if (item is Map<String, dynamic>) {
+                return {
+                  'name': item['id'] ?? item['name'] ?? '',
+                  'label': item['name'] ?? item['id'] ?? '',
+                  'icon': item['icon'],
+                };
+              }
+              return item;
+            }));
+          }
+        }
+        return providers
+            .where((item) =>
+                item is Map<String, dynamic> &&
+                (item['name']?.toString().isNotEmpty ?? false))
+            .toList();
+      }
       final List<String> ops = [];
-      for (final item in jsonDecode(resp.body)) {
+      for (final item in decoded) {
         ops.add(item as String);
       }
       for (final item in ops) {

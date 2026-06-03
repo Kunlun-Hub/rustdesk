@@ -2648,7 +2648,7 @@ impl LoginConfigHandler {
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         let my_id = Config::get_id();
         let (my_id, pure_id) = if let Some((id, _, _)) = self.other_server.as_ref() {
-            let server = Config::get_rendezvous_server();
+            let server = crate::preferred_rendezvous_server();
             (format!("{my_id}@{server}"), id.clone())
         } else {
             (my_id, self.id.clone())

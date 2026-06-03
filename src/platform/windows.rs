@@ -1655,9 +1655,15 @@ if exist \"{tmp_path}\\{app_name} Tray.lnk\" del /f /q \"{tmp_path}\\{app_name} 
 
     // potential bug here: if run_cmd cancelled, but config file is changed.
     if let Some(lic) = get_license() {
-        Config::set_option("key".into(), lic.key);
-        Config::set_option("custom-rendezvous-server".into(), lic.host);
-        Config::set_option("api-server".into(), lic.api);
+        if !crate::relay_pool::is_locked_server_option("key") {
+            Config::set_option("key".into(), lic.key);
+        }
+        if !crate::relay_pool::is_locked_server_option("custom-rendezvous-server") {
+            Config::set_option("custom-rendezvous-server".into(), lic.host);
+        }
+        if !crate::relay_pool::is_locked_server_option("api-server") {
+            Config::set_option("api-server".into(), lic.api);
+        }
     }
 
     let tray_shortcuts = if config::is_outgoing_only() {

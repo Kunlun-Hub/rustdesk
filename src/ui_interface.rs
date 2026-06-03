@@ -137,6 +137,18 @@ pub fn show_run_without_install() -> bool {
 
 #[inline]
 pub fn get_license() -> String {
+    let built_in_key = crate::relay_pool::built_in_key();
+    let built_in_host = crate::relay_pool::built_in_id_server();
+    let built_in_api = crate::relay_pool::built_in_api_server();
+    if !built_in_key.is_empty() || !built_in_host.is_empty() || !built_in_api.is_empty() {
+        #[cfg(feature = "flutter")]
+        return format!("Key: {}\nHost: {}\nAPI: {}", built_in_key, built_in_host, built_in_api);
+        #[cfg(not(feature = "flutter"))]
+        return format!(
+            "<br /> Key: {} <br /> Host: {} API: {}",
+            built_in_key, built_in_host, built_in_api
+        );
+    }
     #[cfg(windows)]
     if let Ok(lic) = crate::platform::windows::get_license_from_exe_name() {
         #[cfg(feature = "flutter")]
@@ -161,6 +173,33 @@ pub fn refresh_options() {
 
 #[inline]
 pub fn get_option<T: AsRef<str>>(key: T) -> String {
+    match key.as_ref() {
+        "custom-rendezvous-server" => {
+            let value = crate::relay_pool::built_in_id_server();
+            if !value.is_empty() {
+                return value;
+            }
+        }
+        "relay-server" => {
+            if crate::relay_pool::is_locked_server_option("relay-server") {
+                return crate::relay_pool::configured_relay_server("config-preview", false)
+                    .unwrap_or_default();
+            }
+        }
+        "api-server" => {
+            let value = crate::relay_pool::built_in_api_server();
+            if !value.is_empty() {
+                return value;
+            }
+        }
+        "key" => {
+            let value = crate::relay_pool::built_in_key();
+            if !value.is_empty() {
+                return value;
+            }
+        }
+        _ => {}
+    }
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let map = OPTIONS.lock().unwrap();
@@ -349,6 +388,23 @@ pub fn get_options() -> String {
     for (k, v) in options.iter() {
         m.insert(k.into(), v.to_owned().into());
     }
+    let built_in_id = crate::relay_pool::built_in_id_server();
+    if !built_in_id.is_empty() {
+        m.insert("custom-rendezvous-server".into(), built_in_id.into());
+    }
+    let built_in_api = crate::relay_pool::built_in_api_server();
+    if !built_in_api.is_empty() {
+        m.insert("api-server".into(), built_in_api.into());
+    }
+    let built_in_key = crate::relay_pool::built_in_key();
+    if !built_in_key.is_empty() {
+        m.insert("key".into(), built_in_key.into());
+    }
+    if crate::relay_pool::is_locked_server_option("relay-server") {
+        let relay_server = crate::relay_pool::configured_relay_server("config-preview", false)
+            .unwrap_or_default();
+        m.insert("relay-server".into(), relay_server.into());
+    }
     serde_json::to_string(&m).unwrap_or_default()
 }
 
@@ -409,6 +465,7 @@ pub fn get_sound_inputs() -> Vec<String> {
 
 #[inline]
 pub fn set_options(m: HashMap<String, String>) {
+    let m = crate::relay_pool::strip_locked_server_options(m);
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         *OPTIONS.lock().unwrap() = m.clone();
@@ -420,6 +477,10 @@ pub fn set_options(m: HashMap<String, String>) {
 
 #[inline]
 pub fn set_option(key: String, value: String) {
+    if crate::relay_pool::is_locked_server_option(&key) {
+        log::info!("ignored update for locked option {}", key);
+        return;
+    }
     if &key == "stop-service" {
         #[cfg(target_os = "macos")]
         {
@@ -1398,7 +1459,7 @@ pub async fn change_id_shared_(id: String, old_id: String) -> &'static str {
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let rendezvous_servers = crate::ipc::get_rendezvous_servers(1_000).await;
     #[cfg(any(target_os = "android", target_os = "ios"))]
-    let rendezvous_servers = Config::get_rendezvous_servers();
+    let rendezvous_servers = crate::preferred_rendezvous_servers();
 
     let mut futs = Vec::new();
     let err: Arc<Mutex<&str>> = Default::default();

@@ -38,7 +38,9 @@ fn main() {
     if !common::global_init() {
         return;
     }
+    common::load_custom_client();
     use clap::App;
+    use hbb_common::futures::executor::block_on;
     use hbb_common::log;
     let args = format!(
         "-p, --port-forward=[PORT-FORWARD-OPTIONS] 'Format: remote-id:local-port:remote-port[:remote-host]'
@@ -54,6 +56,14 @@ fn main() {
         .get_matches();
     use hbb_common::{config::LocalConfig, env_logger::*};
     init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
+    let resolve_cli_key = || {
+        let key = matches.value_of("key").unwrap_or("").trim().to_owned();
+        if !key.is_empty() && built_in_key().is_empty() {
+            key
+        } else {
+            block_on(common::get_key(true))
+        }
+    };
     if let Some(p) = matches.value_of("port-forward") {
         let options: Vec<String> = p.split(":").map(|x| x.to_owned()).collect();
         if options.len() < 3 {
@@ -80,7 +90,7 @@ fn main() {
         }
         common::test_rendezvous_server();
         common::test_nat_type();
-        let key = matches.value_of("key").unwrap_or("").to_owned();
+        let key = resolve_cli_key();
         let token = LocalConfig::get_option("access_token");
         cli::start_one_port_forward(
             options[0].clone(),
@@ -93,7 +103,7 @@ fn main() {
     } else if let Some(p) = matches.value_of("connect") {
         common::test_rendezvous_server();
         common::test_nat_type();
-        let key = matches.value_of("key").unwrap_or("").to_owned();
+        let key = resolve_cli_key();
         let token = LocalConfig::get_option("access_token");
         cli::connect_test(p, key, token);
     } else if let Some(p) = matches.value_of("server") {

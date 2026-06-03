@@ -83,12 +83,12 @@ impl RendezvousMediator {
 
     pub async fn start_all() {
         crate::test_nat_type();
+        crate::hbbs_http::sync::start();
         if config::is_outgoing_only() {
             loop {
                 sleep(1.).await;
             }
         }
-        crate::hbbs_http::sync::start();
         #[cfg(target_os = "windows")]
         if crate::platform::is_installed() && crate::is_server() {
             crate::updater::start_auto_update();
@@ -125,7 +125,7 @@ impl RendezvousMediator {
                 && !crate::platform::installing_service()
             {
                 let mut futs = Vec::new();
-                let servers = Config::get_rendezvous_servers();
+                let servers = crate::preferred_rendezvous_servers();
                 SHOULD_EXIT.store(false, Ordering::SeqCst);
                 MANUAL_RESTARTED.store(false, Ordering::SeqCst);
                 for host in servers.clone() {
@@ -368,13 +368,13 @@ impl RendezvousMediator {
                 });
             }
             Some(rendezvous_message::Union::ConfigureUpdate(cu)) => {
-                let v0 = Config::get_rendezvous_servers();
+                let v0 = crate::preferred_rendezvous_servers();
                 Config::set_option(
                     "rendezvous-servers".to_owned(),
                     cu.rendezvous_servers.join(","),
                 );
                 Config::set_serial(cu.serial);
-                if v0 != Config::get_rendezvous_servers() {
+                if v0 != crate::preferred_rendezvous_servers() {
                     Self::restart();
                 }
             }
@@ -799,7 +799,11 @@ impl RendezvousMediator {
     }
 
     fn get_relay_server(&self, provided_by_rendezvous_server: String) -> String {
-        let mut relay_server = Config::get_option("relay-server");
+        let mut relay_server = crate::relay_pool::configured_relay_server(
+            &self.host,
+            !crate::relay_pool::is_locked_server_option("relay-server"),
+        )
+        .unwrap_or_default();
         if relay_server.is_empty() {
             relay_server = provided_by_rendezvous_server;
         }

@@ -79,6 +79,15 @@ fn install_android_deps() {
 
 fn main() {
     hbb_common::gen_version();
+    for env_name in [
+        "RUSTDESK_BUILD_ID_SERVER",
+        "RUSTDESK_BUILD_API_SERVER",
+        "RUSTDESK_BUILD_KEY",
+        "RUSTDESK_BUILD_RELAY_SERVERS",
+        "RUSTDESK_BUILD_RELAY_API_URL",
+    ] {
+        println!("cargo:rerun-if-env-changed={env_name}");
+    }
     install_android_deps();
     #[cfg(all(windows, feature = "inline"))]
     build_manifest();

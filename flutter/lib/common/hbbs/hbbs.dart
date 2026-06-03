@@ -34,18 +34,18 @@ class UserPayload {
   bool isAdmin = false;
 
   UserPayload.fromJson(Map<String, dynamic> json)
-      : name = json['name'] ?? '',
-        displayName = json['display_name'] ?? '',
+      : name = json['name'] ?? json['username'] ?? '',
+        displayName = json['display_name'] ?? json['displayName'] ?? '',
         avatar = json['avatar'] ?? '',
         email = json['email'] ?? '',
         note = json['note'] ?? '',
         verifier = json['verifier'],
-        status = json['status'] == 0
+        status = json['status'] == 0 || json['status'] == 'DISABLED'
             ? UserStatus.kDisabled
-            : json['status'] == -1
+            : json['status'] == -1 || json['status'] == 'UNVERIFIED'
                 ? UserStatus.kUnverified
                 : UserStatus.kNormal,
-        isAdmin = json['is_admin'] == true;
+        isAdmin = json['is_admin'] == true || json['isAdmin'] == true;
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> map = {
@@ -188,8 +188,9 @@ class LoginResponse {
       {this.access_token, this.type, this.tfa_type, this.secret, this.user});
 
   LoginResponse.fromJson(Map<String, dynamic> json) {
-    access_token = json['access_token'];
-    type = json['type'];
+    access_token = json['access_token'] ?? json['token'];
+    type = json['type'] ??
+        (access_token != null ? HttpType.kAuthResTypeToken : null);
     tfa_type = json['tfa_type'];
     secret = json['secret'];
     user = json['user'] != null ? UserPayload.fromJson(json['user']) : null;

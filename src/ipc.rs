@@ -670,7 +670,7 @@ impl CheckIfRestart {
     pub fn new() -> CheckIfRestart {
         CheckIfRestart {
             stop_service: Config::get_option("stop-service"),
-            rendezvous_servers: Config::get_rendezvous_servers(),
+            rendezvous_servers: crate::preferred_rendezvous_servers(),
             audio_input: Config::get_option("audio-input"),
             voice_call_input: Config::get_option("voice-call-input"),
             ws: Config::get_option(OPTION_ALLOW_WEBSOCKET),
@@ -691,7 +691,7 @@ impl Drop for CheckIfRestart {
             != Config::get_option(config::keys::OPTION_ALLOW_INSECURE_TLS_FALLBACK);
         if allow_insecure_tls_fallback_changed
             || self.stop_service != Config::get_option("stop-service")
-            || self.rendezvous_servers != Config::get_rendezvous_servers()
+            || self.rendezvous_servers != crate::preferred_rendezvous_servers()
             || self.ws != Config::get_option(OPTION_ALLOW_WEBSOCKET)
             || self.disable_udp != Config::get_option(config::keys::OPTION_DISABLE_UDP)
             || self.api_server != Config::get_option("api-server")
@@ -849,11 +849,11 @@ async fn handle(data: Data, stream: &mut Connection) {
                 } else if name == "rendezvous_server" {
                     value = Some(format!(
                         "{},{}",
-                        Config::get_rendezvous_server(),
-                        Config::get_rendezvous_servers().join(",")
+                        crate::preferred_rendezvous_server(),
+                        crate::preferred_rendezvous_servers().join(",")
                     ));
                 } else if name == "rendezvous_servers" {
-                    value = Some(Config::get_rendezvous_servers().join(","));
+                    value = Some(crate::preferred_rendezvous_servers().join(","));
                 } else if name == "fingerprint" {
                     value = if Config::get_key_confirmed() {
                         Some(crate::common::pk_to_fingerprint(Config::get_key_pair().1))
@@ -922,7 +922,7 @@ async fn handle(data: Data, stream: &mut Connection) {
                 if let Some(v) = value.get("privacy-mode-impl-key") {
                     crate::privacy_mode::switch(v);
                 }
-                Config::set_options(value);
+                Config::set_options(crate::relay_pool::strip_locked_server_options(value));
                 allow_err!(stream.send(&Data::Options(None)).await);
             }
         },
@@ -1705,6 +1705,12 @@ pub fn get_id() -> String {
 }
 
 pub async fn get_rendezvous_server(ms_timeout: u64) -> (String, Vec<String>) {
+    if !crate::relay_pool::built_in_id_server().is_empty() {
+        return (
+            crate::preferred_rendezvous_server(),
+            crate::preferred_rendezvous_servers(),
+        );
+    }
     if let Ok(Some(v)) = get_config_async("rendezvous_server", ms_timeout).await {
         let mut urls = v.split(",");
         let a = urls.next().unwrap_or_default().to_owned();
@@ -1712,8 +1718,8 @@ pub async fn get_rendezvous_server(ms_timeout: u64) -> (String, Vec<String>) {
         (a, b)
     } else {
         (
-            Config::get_rendezvous_server(),
-            Config::get_rendezvous_servers(),
+            crate::preferred_rendezvous_server(),
+            crate::preferred_rendezvous_servers(),
         )
     }
 }
@@ -1747,6 +1753,9 @@ pub async fn get_option_async(key: &str) -> String {
 }
 
 pub fn set_option(key: &str, value: &str) {
+    if crate::relay_pool::is_locked_server_option(key) {
+        return;
+    }
     let mut options = get_options();
     if value.is_empty() {
         options.remove(key);
@@ -1758,6 +1767,7 @@ pub fn set_option(key: &str, value: &str) {
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn set_options(value: HashMap<String, String>) -> ResultType<()> {
+    let value = crate::relay_pool::strip_locked_server_options(value);
     let _nat = CheckTestNatType::new();
     if let Ok(mut c) = connect(1000, "").await {
         c.send(&Data::Options(Some(value.clone()))).await?;
@@ -1787,10 +1797,13 @@ pub async fn get_nat_type(ms_timeout: u64) -> i32 {
 }
 
 pub async fn get_rendezvous_servers(ms_timeout: u64) -> Vec<String> {
+    if !crate::relay_pool::built_in_id_server().is_empty() {
+        return crate::preferred_rendezvous_servers();
+    }
     if let Ok(Some(v)) = get_config_async("rendezvous_servers", ms_timeout).await {
         return v.split(',').map(|x| x.to_owned()).collect();
     }
-    return Config::get_rendezvous_servers();
+    return crate::preferred_rendezvous_servers();
 }
 
 #[inline]

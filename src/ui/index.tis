@@ -84,6 +84,9 @@ class ConnectStatus: Reactor.Component {
         } else if (connect_status == 0) {
             return translate('connecting_status');
         }
+        if (hide_server_settings) {
+            return translate('Ready');
+        }
         if (!handler.using_public_server()) return translate('Ready');
         return <span>{translate("Ready")}, <span .link #setup-server>{translate("setup_server_tip")}</span></span>;
     }
@@ -377,6 +380,7 @@ function getAccountLabelWithHandle() {
 
 // Shared dialog functions
 function open_custom_server_dialog() {
+    if (hide_server_settings) return;
     var configOptions = handler.get_options();
     var old_relay = configOptions["relay-server"] || "";
     var old_api = configOptions["api-server"] || "";

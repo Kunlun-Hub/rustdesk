@@ -134,6 +134,16 @@ def make_parser():
         action='store_true',
         help='Skip cargo build process, only flutter version + Linux supported currently'
     )
+    parser.add_argument('--id-server', type=str, default='',
+                        help='Built-in rendezvous server address')
+    parser.add_argument('--api-server', type=str, default='',
+                        help='Built-in admin/api server base URL')
+    parser.add_argument('--key', type=str, default='',
+                        help='Built-in hbbs public key')
+    parser.add_argument('--relay-server', type=str, default='',
+                        help='Fallback relay server list, comma separated')
+    parser.add_argument('--relay-api-url', type=str, default='',
+                        help='Relay list endpoint URL, defaults to <api-server>/relay/list.json')
     if windows:
         parser.add_argument(
             '--skip-portable-pack',
@@ -286,6 +296,41 @@ def get_features(args):
             features.append('screencapturekit')
     print("features:", features)
     return features
+
+
+def apply_custom_client_build_env(args):
+    def set_or_clear(name, value):
+        value = (value or '').strip()
+        if value:
+            os.environ[name] = value
+        elif name in os.environ:
+            del os.environ[name]
+
+    set_or_clear('RUSTDESK_BUILD_ID_SERVER', args.id_server)
+    set_or_clear('RUSTDESK_BUILD_API_SERVER', args.api_server)
+    set_or_clear('RUSTDESK_BUILD_KEY', args.key)
+    set_or_clear('RUSTDESK_BUILD_RELAY_SERVERS', args.relay_server)
+
+    relay_api_url = (args.relay_api_url or '').strip()
+    if not relay_api_url and args.api_server.strip():
+        relay_api_url = args.api_server.strip().rstrip('/') + '/relay/list.json'
+    set_or_clear('RUSTDESK_BUILD_RELAY_API_URL', relay_api_url)
+
+
+def validate_custom_client_build_args(args):
+    custom_args = [
+        args.id_server,
+        args.api_server,
+        args.key,
+        args.relay_server,
+        args.relay_api_url,
+    ]
+    if args.skip_cargo and any((value or '').strip() for value in custom_args):
+        sys.stderr.write(
+            "Custom client server settings require a Rust rebuild. "
+            "Remove --skip-cargo and run the build again.\n"
+        )
+        sys.exit(-1)
 
 
 def generate_control_file(version):
@@ -466,6 +511,8 @@ def main():
     global skip_cargo
     parser = make_parser()
     args = parser.parse_args()
+    validate_custom_client_build_args(args)
+    apply_custom_client_build_env(args)
 
     if os.path.exists(exe_path):
         os.unlink(exe_path)

@@ -2,12 +2,10 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_hbb/common/widgets/connection_page_title.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hbb/consts.dart';
-import 'package:flutter_hbb/desktop/widgets/popup_menu.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -16,10 +14,17 @@ import 'package:flutter_hbb/models/peer_model.dart';
 
 import '../../common.dart';
 import '../../common/formatter/id_formatter.dart';
-import '../../common/widgets/peer_tab_page.dart';
 import '../../common/widgets/autocomplete.dart';
 import '../../models/platform_model.dart';
-import '../../desktop/widgets/material_mod_popup_menu.dart' as mod_menu;
+
+const _assistBg = Color(0xFF141519);
+const _assistControlBg = Color(0xFF17181D);
+const _assistInputBg = Color(0xFF17181D);
+const _assistInputBorder = Color(0xFF454750);
+const _assistText = Color(0xFFF4F5F8);
+const _assistMuted = Color(0xFF8D9099);
+const _assistAccent = Color(0xFF2F74FF);
+const _assistButton = Color(0xFF233E77);
 
 class OnlineStatusWidget extends StatefulWidget {
   const OnlineStatusWidget({Key? key, this.onSvcStatusChanged})
@@ -66,6 +71,8 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
   @override
   Widget build(BuildContext context) {
     final isIncomingOnly = bind.isIncomingOnly();
+    final hideServerSettings =
+        bind.mainGetBuildinOption(key: kOptionHideServerSetting) == 'Y';
     startServiceWidget() => Offstage(
           offstage: !_svcStopped.value,
           child: InkWell(
@@ -80,7 +87,8 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
 
     setupServerWidget() => Flexible(
           child: Offstage(
-            offstage: !(!_svcStopped.value &&
+            offstage: !(!hideServerSettings &&
+                !_svcStopped.value &&
                 stateGlobal.svcStatus.value == SvcStatus.ready &&
                 _svcIsUsingPublicServer.value),
             child: Row(
@@ -204,8 +212,10 @@ class _ConnectionPageState extends State<ConnectionPage>
   final RxBool _idInputFocused = false.obs;
   final FocusNode _idFocusNode = FocusNode();
   final TextEditingController _idEditingController = TextEditingController();
+  final TextEditingController _passwordEditingController =
+      TextEditingController();
 
-  String selectedConnectionType = 'Connect';
+  String selectedConnectionType = 'remoteDesktop';
 
   bool isWindowMinimized = false;
 
@@ -214,12 +224,11 @@ class _ConnectionPageState extends State<ConnectionPage>
   // https://github.com/flutter/flutter/issues/157244
   Iterable<Peer> _autocompleteOpts = [];
 
-  final _menuOpen = false.obs;
-
   @override
   void initState() {
     super.initState();
     _allPeersLoader.init(setState);
+    Future.delayed(Duration.zero, () => _allPeersLoader.getAllPeers());
     _idFocusNode.addListener(onFocusChanged);
     if (_idController.text.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -244,6 +253,7 @@ class _ConnectionPageState extends State<ConnectionPage>
     _idFocusNode.removeListener(onFocusChanged);
     _idFocusNode.dispose();
     _idEditingController.dispose();
+    _passwordEditingController.dispose();
     if (Get.isRegistered<IDTextEditingController>()) {
       Get.delete<IDTextEditingController>();
     }
@@ -304,24 +314,34 @@ class _ConnectionPageState extends State<ConnectionPage>
   @override
   Widget build(BuildContext context) {
     final isOutgoingOnly = bind.isOutgoingOnly();
-    return Column(
-      children: [
-        Expanded(
-            child: Column(
-          children: [
-            Row(
-              children: [
-                Flexible(child: _buildRemoteIDTextField(context)),
-              ],
-            ).marginOnly(top: 22),
-            SizedBox(height: 12),
-            Divider().paddingOnly(right: 12),
-            Expanded(child: PeerTabPage()),
-          ],
-        ).paddingOnly(left: 12.0)),
-        if (!isOutgoingOnly) const Divider(height: 1),
-        if (!isOutgoingOnly) OnlineStatusWidget()
-      ],
+    return Container(
+      color: _assistBg,
+      child: Column(
+        children: [
+          Expanded(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 594),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(0, 38, 0, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (!isOutgoingOnly) _buildLocalAssistPanel(context),
+                      const SizedBox(height: 34),
+                      _buildRemoteAssistPanel(context),
+                      const SizedBox(height: 28),
+                      _buildQuickPeerCard(context),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (!isOutgoingOnly) OnlineStatusWidget()
+        ],
+      ),
     );
   }
 
@@ -332,284 +352,466 @@ class _ConnectionPageState extends State<ConnectionPage>
       bool isViewCamera = false,
       bool isTerminal = false}) {
     var id = _idController.id;
+    final password = _passwordEditingController.text.trim();
     connect(context, id,
-        isFileTransfer: isFileTransfer,
+        isFileTransfer:
+            isFileTransfer || selectedConnectionType == 'remoteFile',
         isViewCamera: isViewCamera,
-        isTerminal: isTerminal);
+        isTerminal: isTerminal,
+        password: password.isEmpty ? null : password);
+  }
+
+  Widget _buildLocalAssistPanel(BuildContext context) {
+    final model = gFFI.serverModel;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              '远程协助本机',
+              style: TextStyle(
+                color: _assistText,
+                fontSize: 23,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 12),
+            _buildServiceSwitch(),
+            const SizedBox(width: 12),
+            Container(
+              height: 25,
+              width: 42,
+              decoration: BoxDecoration(
+                color: _assistControlBg,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Center(
+                child: Icon(Icons.desktop_windows_outlined,
+                    color: Color(0xFF6E7178), size: 17),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 26),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _buildReadOnlyValue(
+                label: '本机识别码',
+                controller: model.serverId,
+                valueStyle: const TextStyle(
+                  color: _assistText,
+                  fontSize: 34,
+                  height: 1.05,
+                  letterSpacing: 0,
+                ),
+                onCopy: () {
+                  Clipboard.setData(ClipboardData(text: model.serverId.text));
+                  showToast(translate('Copied'));
+                },
+              ),
+            ),
+            const SizedBox(width: 92),
+            Expanded(
+              child: _buildReadOnlyValue(
+                label: '单次验证码⌄',
+                controller: model.serverPasswd,
+                obscure: true,
+                valueStyle: const TextStyle(
+                  color: Color(0xFF595B62),
+                  fontSize: 30,
+                  height: 1.05,
+                  letterSpacing: 6,
+                ),
+                onCopy: () {
+                  Clipboard.setData(
+                      ClipboardData(text: model.serverPasswd.text));
+                  showToast(translate('Copied'));
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildServiceSwitch() {
+    if (!Get.isRegistered<RxBool>(tag: 'stop-service')) {
+      return const SizedBox();
+    }
+    final svcStopped = Get.find<RxBool>(tag: 'stop-service');
+    return Obx(() {
+      final enabled = !svcStopped.value;
+      return InkWell(
+        onTap: () => start_service(!enabled),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          width: 42,
+          height: 25,
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: enabled ? _assistAccent : _assistControlBg,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Align(
+            alignment: enabled ? Alignment.centerRight : Alignment.centerLeft,
+            child: Container(
+              width: 19,
+              height: 19,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildReadOnlyValue({
+    required String label,
+    required TextEditingController controller,
+    required TextStyle valueStyle,
+    bool obscure = false,
+    VoidCallback? onCopy,
+  }) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final raw = controller.text.trim();
+        final value =
+            obscure ? (raw.isEmpty || raw == '-' ? '••••••' : '••••••') : raw;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: const TextStyle(
+                    color: _assistMuted, fontSize: 14, height: 1.4)),
+            const SizedBox(height: 9),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: valueStyle,
+                  ),
+                ),
+                InkWell(
+                  onTap: onCopy,
+                  child: const Icon(Icons.copy_outlined,
+                      color: _assistMuted, size: 15),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildRemoteAssistPanel(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '远程协助他人',
+          style: TextStyle(
+            color: _assistText,
+            fontSize: 23,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Expanded(flex: 5, child: _buildRemoteIDTextField(context)),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 4,
+              child: _buildPasswordField(),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 190,
+              height: 44,
+              child: ElevatedButton(
+                onPressed: onConnect,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _assistButton,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text('连接',
+                    style: TextStyle(color: Colors.white, fontSize: 14)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _buildConnectionTypeOptions(),
+      ],
+    );
   }
 
   /// UI for the remote ID TextField.
   /// Search for a peer.
   Widget _buildRemoteIDTextField(BuildContext context) {
-    var w = Container(
-      width: 320 + 20 * 2,
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
-      decoration: BoxDecoration(
-          borderRadius: const BorderRadius.all(Radius.circular(13)),
-          border: Border.all(color: Theme.of(context).colorScheme.background)),
-      child: Ink(
-        child: Column(
-          children: [
-            getConnectionPageTitle(context, false).marginOnly(bottom: 15),
-            Row(
-              children: [
-                Expanded(
-                    child: RawAutocomplete<Peer>(
-                  optionsBuilder: (TextEditingValue textEditingValue) {
-                    if (textEditingValue.text == '') {
-                      _autocompleteOpts = const Iterable<Peer>.empty();
-                    } else if (_allPeersLoader.peers.isEmpty &&
-                        !_allPeersLoader.isPeersLoaded) {
-                      Peer emptyPeer = Peer(
-                        id: '',
-                        username: '',
-                        hostname: '',
-                        alias: '',
-                        platform: '',
-                        tags: [],
-                        hash: '',
-                        password: '',
-                        forceAlwaysRelay: false,
-                        rdpPort: '',
-                        rdpUsername: '',
-                        loginName: '',
-                        device_group_name: '',
-                        note: '',
-                      );
-                      _autocompleteOpts = [emptyPeer];
-                    } else {
-                      String textWithoutSpaces =
-                          textEditingValue.text.replaceAll(" ", "");
-                      if (int.tryParse(textWithoutSpaces) != null) {
-                        textEditingValue = TextEditingValue(
-                          text: textWithoutSpaces,
-                          selection: textEditingValue.selection,
-                        );
-                      }
-                      String textToFind = textEditingValue.text.toLowerCase();
-                      _autocompleteOpts = _allPeersLoader.peers
-                          .where((peer) =>
-                              peer.id.toLowerCase().contains(textToFind) ||
-                              peer.username
-                                  .toLowerCase()
-                                  .contains(textToFind) ||
-                              peer.hostname
-                                  .toLowerCase()
-                                  .contains(textToFind) ||
-                              peer.alias.toLowerCase().contains(textToFind))
-                          .toList();
-                    }
-                    return _autocompleteOpts;
-                  },
-                  focusNode: _idFocusNode,
-                  textEditingController: _idEditingController,
-                  fieldViewBuilder: (
-                    BuildContext context,
-                    TextEditingController fieldTextEditingController,
-                    FocusNode fieldFocusNode,
-                    VoidCallback onFieldSubmitted,
-                  ) {
-                    updateTextAndPreserveSelection(
-                        fieldTextEditingController, _idController.text);
-                    return Obx(() => TextField(
-                          autocorrect: false,
-                          enableSuggestions: false,
-                          keyboardType: TextInputType.visiblePassword,
-                          focusNode: fieldFocusNode,
-                          style: const TextStyle(
-                            fontFamily: 'WorkSans',
-                            fontSize: 22,
-                            height: 1.4,
-                          ),
-                          maxLines: 1,
-                          cursorColor:
-                              Theme.of(context).textTheme.titleLarge?.color,
-                          decoration: InputDecoration(
-                              filled: false,
-                              counterText: '',
-                              hintText: _idInputFocused.value
-                                  ? null
-                                  : translate('Enter Remote ID'),
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 15, vertical: 13)),
-                          controller: fieldTextEditingController,
-                          inputFormatters: [IDTextInputFormatter()],
-                          onChanged: (v) {
-                            _idController.id = v;
-                          },
-                          onSubmitted: (_) {
-                            onConnect();
-                          },
-                        ).workaroundFreezeLinuxMint());
-                  },
-                  onSelected: (option) {
-                    setState(() {
-                      _idController.id = option.id;
-                      FocusScope.of(context).unfocus();
-                    });
-                  },
-                  optionsViewBuilder: (BuildContext context,
-                      AutocompleteOnSelected<Peer> onSelected,
-                      Iterable<Peer> options) {
-                    options = _autocompleteOpts;
-                    double maxHeight = options.length * 50;
-                    if (options.length == 1) {
-                      maxHeight = 52;
-                    } else if (options.length == 3) {
-                      maxHeight = 146;
-                    } else if (options.length == 4) {
-                      maxHeight = 193;
-                    }
-                    maxHeight = maxHeight.clamp(0, 200);
+    return RawAutocomplete<Peer>(
+      optionsBuilder: (TextEditingValue textEditingValue) {
+        if (textEditingValue.text == '') {
+          _autocompleteOpts = const Iterable<Peer>.empty();
+        } else if (_allPeersLoader.peers.isEmpty &&
+            !_allPeersLoader.isPeersLoaded) {
+          _autocompleteOpts = [Peer.loading()];
+        } else {
+          String textWithoutSpaces = textEditingValue.text.replaceAll(" ", "");
+          if (int.tryParse(textWithoutSpaces) != null) {
+            textEditingValue = TextEditingValue(
+              text: textWithoutSpaces,
+              selection: textEditingValue.selection,
+            );
+          }
+          String textToFind = textEditingValue.text.toLowerCase();
+          _autocompleteOpts = _allPeersLoader.peers
+              .where((peer) =>
+                  peer.id.toLowerCase().contains(textToFind) ||
+                  peer.username.toLowerCase().contains(textToFind) ||
+                  peer.hostname.toLowerCase().contains(textToFind) ||
+                  peer.alias.toLowerCase().contains(textToFind))
+              .toList();
+        }
+        return _autocompleteOpts;
+      },
+      focusNode: _idFocusNode,
+      textEditingController: _idEditingController,
+      fieldViewBuilder: (
+        BuildContext context,
+        TextEditingController fieldTextEditingController,
+        FocusNode fieldFocusNode,
+        VoidCallback onFieldSubmitted,
+      ) {
+        updateTextAndPreserveSelection(
+            fieldTextEditingController, _idController.text);
+        return Obx(() => TextField(
+              autocorrect: false,
+              enableSuggestions: false,
+              keyboardType: TextInputType.visiblePassword,
+              focusNode: fieldFocusNode,
+              style: const TextStyle(color: _assistText, fontSize: 14),
+              maxLines: 1,
+              cursorColor: _assistAccent,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: _assistInputBg,
+                counterText: '',
+                hintText: _idInputFocused.value ? null : '请输入伙伴识别码',
+                hintStyle: const TextStyle(color: _assistMuted, fontSize: 14),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 13, vertical: 13),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(5),
+                  borderSide: const BorderSide(color: _assistInputBorder),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(5),
+                  borderSide: const BorderSide(color: _assistAccent),
+                ),
+              ),
+              controller: fieldTextEditingController,
+              inputFormatters: [IDTextInputFormatter()],
+              onChanged: (v) {
+                _idController.id = v;
+              },
+              onSubmitted: (_) {
+                onConnect();
+              },
+            ).workaroundFreezeLinuxMint());
+      },
+      onSelected: (option) {
+        setState(() {
+          _idController.id = option.id;
+          FocusScope.of(context).unfocus();
+        });
+      },
+      optionsViewBuilder: (BuildContext context,
+          AutocompleteOnSelected<Peer> onSelected, Iterable<Peer> options) {
+        options = _autocompleteOpts;
+        final maxHeight = (options.length * 50.0).clamp(0.0, 200.0);
 
-                    return Align(
-                      alignment: Alignment.topLeft,
-                      child: Container(
-                          decoration: BoxDecoration(
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
-                                blurRadius: 5,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                              borderRadius: BorderRadius.circular(5),
-                              child: Material(
-                                elevation: 4,
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxHeight: maxHeight,
-                                    maxWidth: 319,
-                                  ),
-                                  child: _allPeersLoader.peers.isEmpty &&
-                                          !_allPeersLoader.isPeersLoaded
-                                      ? Container(
-                                          height: 80,
-                                          child: Center(
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          ))
-                                      : Padding(
-                                          padding:
-                                              const EdgeInsets.only(top: 5),
-                                          child: ListView(
-                                            children: options
-                                                .map((peer) =>
-                                                    AutocompletePeerTile(
-                                                        onSelect: () =>
-                                                            onSelected(peer),
-                                                        peer: peer))
-                                                .toList(),
-                                          ),
-                                        ),
-                                ),
-                              ))),
-                    );
-                  },
-                )),
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Container(
+            decoration: BoxDecoration(
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.35),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
               ],
             ),
-            Padding(
-              padding: const EdgeInsets.only(top: 13.0),
-              child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                SizedBox(
-                  height: 28.0,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      onConnect();
-                    },
-                    child: Text(translate("Connect")),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: Material(
+                color: _assistControlBg,
+                elevation: 4,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: maxHeight,
+                    maxWidth: 319,
                   ),
+                  child: _allPeersLoader.peers.isEmpty &&
+                          !_allPeersLoader.isPeersLoaded
+                      ? const SizedBox(
+                          height: 80,
+                          child: Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.only(top: 5),
+                          child: ListView(
+                            children: options
+                                .map((peer) => AutocompletePeerTile(
+                                    onSelect: () => onSelected(peer),
+                                    peer: peer))
+                                .toList(),
+                          ),
+                        ),
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  height: 28.0,
-                  width: 28.0,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Theme.of(context).dividerColor),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: StatefulBuilder(
-                      builder: (context, setState) {
-                        var offset = Offset(0, 0);
-                        return Obx(() => InkWell(
-                              child: _menuOpen.value
-                                  ? Transform.rotate(
-                                      angle: pi,
-                                      child: Icon(IconFont.more, size: 14),
-                                    )
-                                  : Icon(IconFont.more, size: 14),
-                              onTapDown: (e) {
-                                offset = e.globalPosition;
-                              },
-                              onTap: () async {
-                                _menuOpen.value = true;
-                                final x = offset.dx;
-                                final y = offset.dy;
-                                await mod_menu
-                                    .showMenu(
-                                  context: context,
-                                  position: RelativeRect.fromLTRB(x, y, x, y),
-                                  items: [
-                                    (
-                                      'Transfer file',
-                                      () => onConnect(isFileTransfer: true)
-                                    ),
-                                    (
-                                      'View camera',
-                                      () => onConnect(isViewCamera: true)
-                                    ),
-                                    (
-                                      '${translate('Terminal')} (beta)',
-                                      () => onConnect(isTerminal: true)
-                                    ),
-                                  ]
-                                      .map((e) => MenuEntryButton<String>(
-                                            childBuilder: (TextStyle? style) =>
-                                                Text(
-                                              translate(e.$1),
-                                              style: style,
-                                            ),
-                                            proc: () => e.$2(),
-                                            padding: EdgeInsets.symmetric(
-                                                horizontal:
-                                                    kDesktopMenuPadding.left),
-                                            dismissOnClicked: true,
-                                          ))
-                                      .map((e) => e.build(
-                                          context,
-                                          const MenuConfig(
-                                              commonColor: CustomPopupMenuTheme
-                                                  .commonColor,
-                                              height:
-                                                  CustomPopupMenuTheme.height,
-                                              dividerHeight:
-                                                  CustomPopupMenuTheme
-                                                      .dividerHeight)))
-                                      .expand((i) => i)
-                                      .toList(),
-                                  elevation: 8,
-                                )
-                                    .then((_) {
-                                  _menuOpen.value = false;
-                                });
-                              },
-                            ));
-                      },
-                    ),
-                  ),
-                ),
-              ]),
+              ),
             ),
-          ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPasswordField() {
+    return TextField(
+      controller: _passwordEditingController,
+      autocorrect: false,
+      enableSuggestions: false,
+      keyboardType: TextInputType.visiblePassword,
+      style: const TextStyle(color: _assistText, fontSize: 14),
+      maxLines: 1,
+      cursorColor: _assistAccent,
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: _assistInputBg,
+        hintText: '验证码（可为空）',
+        hintStyle: const TextStyle(color: _assistMuted, fontSize: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 13, vertical: 13),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(5),
+          borderSide: const BorderSide(color: _assistInputBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(5),
+          borderSide: const BorderSide(color: _assistAccent),
+        ),
+      ),
+      onSubmitted: (_) => onConnect(),
+    ).workaroundFreezeLinuxMint();
+  }
+
+  Widget _buildConnectionTypeOptions() {
+    return Row(
+      children: [
+        _buildModeRadio('remoteDesktop', '远程桌面'),
+        const SizedBox(width: 28),
+        _buildModeRadio('remoteFile', '远程文件'),
+      ],
+    );
+  }
+
+  Widget _buildModeRadio(String value, String label) {
+    final selected = selectedConnectionType == value;
+    return InkWell(
+      onTap: () => setState(() => selectedConnectionType = value),
+      child: Row(
+        children: [
+          Radio<String>(
+            value: value,
+            groupValue: selectedConnectionType,
+            activeColor: _assistAccent,
+            onChanged: (next) {
+              if (next != null) {
+                setState(() => selectedConnectionType = next);
+              }
+            },
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              color: selected ? _assistText : _assistMuted,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickPeerCard(BuildContext context) {
+    if (!gFFI.userModel.isLogin || _allPeersLoader.peers.isEmpty) {
+      return const SizedBox();
+    }
+    final peer = _allPeersLoader.peers.first;
+    final label = peer.alias.isNotEmpty
+        ? peer.alias
+        : (peer.hostname.isNotEmpty ? peer.hostname : peer.id);
+    return Center(
+      child: InkWell(
+        onTap: () => connect(context, peer.id),
+        child: Container(
+          width: 190,
+          height: 88,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF6C83FF), Color(0xFF5A28D7)],
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(12, 10, 10, 12),
+          child: Stack(
+            children: [
+              Positioned(
+                left: -8,
+                top: -10,
+                child: Icon(Icons.play_arrow_rounded,
+                    color: Colors.white.withOpacity(0.12), size: 74),
+              ),
+              const Positioned(
+                right: 0,
+                top: 0,
+                child:
+                    Icon(Icons.favorite_border, color: Colors.white, size: 17),
+              ),
+              Positioned(
+                left: 0,
+                bottom: 0,
+                right: 24,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
-    return Container(
-        constraints: const BoxConstraints(maxWidth: 600), child: w);
   }
 }

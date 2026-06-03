@@ -68,8 +68,45 @@ cd F:\rustdesk\rustdesk
 python .\build.py --portable --hwcodec --flutter --vram --skip-portable-pack
 ```
 
+如果需要直接把 `ID Server`、`API Server`、连接公钥和中继列表接口写入构建产物，可以在构建时传入：
+
+```powershell
+python .\build.py --portable --hwcodec --flutter --vram --skip-portable-pack `
+  --id-server your-hbbs.example.com `
+  --api-server https://api-server.example.com `
+  --key your-hbbs-public-key `
+  --relay-server relay-a.example.com,relay-b.example.com
+```
+
+其中 `--relay-server` 仅作为接口不可用时的 fallback 列表；如果不显式传 `--relay-api-url`，构建脚本会默认把中继列表地址固定为：
+
+```text
+https://api-server.example.com/relay/list.json
+```
+
+客户端启动后会定期读取这个地址刷新中继列表，而不是把 relay 地址写死到单个包里。
+
+如果你更希望直接使用一个独立脚本，也可以运行仓库根目录新增的：
+
+```powershell
+.\build_custom_client.ps1 `
+  -IdServer your-hbbs.example.com `
+  -ApiServer https://api-server.example.com `
+  -Key your-hbbs-public-key `
+  -RelayServer relay-a.example.com,relay-b.example.com
+```
+
+脚本会自动把 relay 列表接口补全为：
+
+```text
+https://api-server.example.com/relay/list.json
+```
+
+如果需要覆盖默认地址，可额外传入 `-RelayApiUrl`。
+
 构建产物一般在：
 
+When passing built-in server arguments, do not combine them with `--skip-cargo` or `-SkipCargo`; the Rust core must be rebuilt for the embedded config to take effect.
 ```text
 F:\rustdesk\rustdesk\flutter\build\windows\x64\runner\Release\
 ```
@@ -231,7 +268,6 @@ src/core_main.rs
 
 ```powershell
 rustdesk.exe --option custom-rendezvous-server your-hbbs.example.com
-rustdesk.exe --option relay-server your-hbbr.example.com
 rustdesk.exe --option key 你的服务器公钥
 ```
 
