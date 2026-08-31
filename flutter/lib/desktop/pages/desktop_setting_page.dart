@@ -946,7 +946,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
         child: InkWell(
           child: Obx(() => Row(
                 children: [
-                  Checkbox(
+                  _SettingCheckbox(
                           value: has2fa.value,
                           onChanged: enabled ? onChanged : null)
                       .marginOnly(right: 5),
@@ -989,7 +989,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
           child: InkWell(
               child: Obx(() => Row(
                     children: [
-                      Checkbox(
+                      _SettingCheckbox(
                               value: hasBot.value,
                               onChanged: enabled ? onChangedBot : null)
                           .marginOnly(right: 5),
@@ -1209,7 +1209,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
               .map((value) => GestureDetector(
                     child: Row(
                       children: [
-                        Radio(
+                        _SettingRadio<String>(
                             value: value,
                             groupValue: model.temporaryPasswordLength,
                             onChanged: onChanged),
@@ -1232,7 +1232,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
             child: InkWell(
                 child: Row(
               children: [
-                Checkbox(
+                _SettingCheckbox(
                         value: model.allowNumericOneTimePassword,
                         onChanged: isNumOPTChangable
                             ? (bool? v) {
@@ -1334,7 +1334,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
       child: GestureDetector(
           child: Row(
             children: [
-              Checkbox(
+              _SettingCheckbox(
                       value: value,
                       onChanged: enabled ? (_) => onChanged(!value) : null)
                   .marginOnly(right: 5),
@@ -1434,7 +1434,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
           message: translate('whitelist_tip'),
           child: Obx(() => Row(
                 children: [
-                  Checkbox(
+                  _SettingCheckbox(
                           value: hasWhitelist.value,
                           onChanged: enabled && !isOptFixed ? onChanged : null)
                       .marginOnly(right: 5),
@@ -1484,7 +1484,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
         message: translate('id_whitelist_tip'),
         child: Obx(() => Row(
               children: [
-                Checkbox(
+                _SettingCheckbox(
                         value: hasIdWhitelist.value,
                         onChanged: enabled && !isOptFixed ? onChanged : null)
                     .marginOnly(right: 5),
@@ -1533,7 +1533,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
                     enableHideCm ? () => onHideCmChanged(!model.hideCm) : null,
                 child: Row(
                   children: [
-                    Checkbox(
+                    _SettingCheckbox(
                             value: model.hideCm,
                             onChanged: enabled && enableHideCm
                                 ? onHideCmChanged
@@ -1628,7 +1628,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
     return GestureDetector(
       child: Obx(() => Row(
             children: [
-              Checkbox(
+              _SettingCheckbox(
                       value: unlockPin.isNotEmpty,
                       onChanged: enabled && !isOptFixed ? onChanged : null)
                   .marginOnly(right: 5),
@@ -1754,7 +1754,7 @@ class _NetworkState extends State<_Network> with AutomaticKeepAliveClientMixin {
           title: title,
           showTooltip: true,
           tooltipMessage: tooltipMessage,
-          trailing: Switch(
+          trailing: _SettingSwitch(
             value: mainGetBoolOptionSync(optionKey),
             onChanged: locked || isOptionFixed(optionKey)
                 ? null
@@ -1819,7 +1819,7 @@ class _NetworkState extends State<_Network> with AutomaticKeepAliveClientMixin {
                               showTooltip: true,
                               tooltipMessage:
                                   '${translate('disable-udp-tip')}\n\n${translate('server-oss-not-support-tip')}',
-                              trailing: Switch(
+                              trailing: _SettingSwitch(
                                 value: bind.mainGetOptionSync(
                                         key: kOptionDisableUdp) ==
                                     'Y',
@@ -2103,7 +2103,7 @@ class _DisplayState extends State<_Display> {
     return GestureDetector(
         child: Row(
           children: [
-            Checkbox(
+            _SettingCheckbox(
                     value: value,
                     onChanged: isOptFixed ? null : (_) => onChanged(!value))
                 .marginOnly(right: 5),
@@ -2252,7 +2252,7 @@ class _CheckboxState extends State<_Checkbox> {
     return GestureDetector(
       child: Row(
         children: [
-          Checkbox(
+          _SettingCheckbox(
             value: value,
             onChanged: (_) => onChanged(!value),
           ).marginOnly(right: 5),
@@ -2521,6 +2521,148 @@ class _AboutState extends State<_About> {
 
 //#region components
 
+class _SettingCheckbox extends StatelessWidget {
+  const _SettingCheckbox({required this.value, this.onChanged});
+
+  final bool value;
+  final ValueChanged<bool?>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onChanged != null;
+    final color = enabled
+        ? DesktopHomeTheme.textSecondary(context)
+        : DesktopHomeTheme.textSecondary(context).withOpacity(0.35);
+    return Semantics(
+      checked: value,
+      enabled: enabled,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: enabled ? () => onChanged?.call(!value) : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          width: 18,
+          height: 18,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: value
+                ? DesktopHomeTheme.brand
+                : DesktopHomeTheme.surfaceMuted(context),
+            borderRadius: BorderRadius.circular(5),
+            border: Border.all(
+              color: value ? DesktopHomeTheme.brand : color,
+              width: 1.2,
+            ),
+          ),
+          child: value
+              ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
+              : null,
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingRadio<T> extends StatelessWidget {
+  const _SettingRadio({
+    required this.value,
+    required this.groupValue,
+    this.onChanged,
+  });
+
+  final T value;
+  final T? groupValue;
+  final ValueChanged<T?>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = value == groupValue;
+    final enabled = onChanged != null;
+    final secondary = DesktopHomeTheme.textSecondary(context);
+    return Semantics(
+      checked: selected,
+      inMutuallyExclusiveGroup: true,
+      enabled: enabled,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: enabled ? () => onChanged?.call(value) : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          width: 18,
+          height: 18,
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: DesktopHomeTheme.surfaceMuted(context),
+            border: Border.all(
+              color: selected
+                  ? DesktopHomeTheme.brand
+                  : secondary.withOpacity(enabled ? 1 : 0.35),
+              width: selected ? 1.5 : 1.2,
+            ),
+          ),
+          child: selected
+              ? const DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: DesktopHomeTheme.brand,
+                  ),
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingSwitch extends StatelessWidget {
+  const _SettingSwitch({required this.value, this.onChanged});
+
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onChanged != null;
+    final secondary = DesktopHomeTheme.textSecondary(context);
+    return Semantics(
+      toggled: value,
+      enabled: enabled,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: enabled ? () => onChanged?.call(!value) : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          width: 36,
+          height: 20,
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: value
+                ? DesktopHomeTheme.brand
+                : secondary.withOpacity(enabled ? 0.28 : 0.14),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: AnimatedAlign(
+            duration: const Duration(milliseconds: 140),
+            alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+            child: Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(enabled ? 1 : 0.62),
+                shape: BoxShape.circle,
+                boxShadow: const [
+                  BoxShadow(color: Color(0x22000000), blurRadius: 2),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ignore: non_constant_identifier_names
 Widget _Card(
     {required String title,
@@ -2616,7 +2758,7 @@ Widget _OptionCheckBox(
     child: Obx(
       () => Row(
         children: [
-          Checkbox(
+          _SettingCheckbox(
                   value: ref.value,
                   onChanged: enabled && !isOptFixed ? onChanged : null)
               .marginOnly(right: 5),
@@ -2657,7 +2799,8 @@ Widget _Radio<T>(BuildContext context,
   return GestureDetector(
     child: Row(
       children: [
-        Radio<T>(value: value, groupValue: groupValue, onChanged: onChange2),
+        _SettingRadio<T>(
+            value: value, groupValue: groupValue, onChanged: onChange2),
         Expanded(
           child: Text(translate(label),
                   overflow: autoNewLine ? null : TextOverflow.ellipsis,
