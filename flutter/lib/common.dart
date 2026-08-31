@@ -869,9 +869,13 @@ class OverlayDialogManager {
             innerClicked = false;
           },
           child: Container(
-              color: Theme.of(context).brightness == Brightness.light
-                  ? Colors.black12
-                  : Colors.black45,
+              color: (isDesktop || isWebDesktop)
+                  ? (Theme.of(context).brightness == Brightness.light
+                      ? const Color(0x520B1220)
+                      : const Color(0xA6000000))
+                  : (Theme.of(context).brightness == Brightness.light
+                      ? Colors.black12
+                      : Colors.black45),
               child: StatefulBuilder(builder: (context, setState) {
                 return Listener(
                   onPointerUp: (_) => innerClicked = true,
@@ -1124,6 +1128,69 @@ class CustomAlertDialog extends StatelessWidget {
     bool tabTapped = false;
     if (isAndroid) gFFI.invokeMethod("enable_soft_keyboard", true);
 
+    final desktop = isDesktop || isWebDesktop;
+    final dialog = AlertDialog(
+      scrollable: true,
+      backgroundColor: desktop ? DesktopHomeTheme.surface(context) : null,
+      surfaceTintColor: desktop ? Colors.transparent : null,
+      shadowColor: desktop ? Colors.black.withOpacity(0.24) : null,
+      elevation: desktop ? 20 : null,
+      shape: desktop
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: DesktopHomeTheme.border(context)),
+            )
+          : null,
+      insetPadding: desktop
+          ? const EdgeInsets.symmetric(horizontal: 32, vertical: 28)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+      title: title,
+      titleTextStyle: desktop
+          ? TextStyle(
+              color: DesktopHomeTheme.textPrimary(context),
+              fontSize: 17,
+              height: 1.3,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.1,
+            )
+          : null,
+      content: ConstrainedBox(
+        constraints: contentBoxConstraints,
+        child: content,
+      ),
+      contentTextStyle: desktop
+          ? TextStyle(
+              color: DesktopHomeTheme.textSecondary(context),
+              fontSize: 13,
+              height: 1.5,
+            )
+          : null,
+      actions: actions,
+      actionsAlignment: desktop ? MainAxisAlignment.end : null,
+      actionsOverflowAlignment: desktop ? OverflowBarAlignment.end : null,
+      actionsOverflowButtonSpacing: desktop ? 8 : null,
+      titlePadding: titlePadding ??
+          (desktop
+              ? const EdgeInsets.fromLTRB(24, 22, 24, 0)
+              : MyTheme.dialogTitlePadding()),
+      contentPadding: contentPadding != null
+          ? EdgeInsets.all(contentPadding!)
+          : (desktop
+              ? EdgeInsets.fromLTRB(
+                  24,
+                  title == null ? 22 : 16,
+                  24,
+                  actions is List ? 18 : 22,
+                )
+              : MyTheme.dialogContentPadding(actions: actions is List)),
+      actionsPadding: desktop
+          ? const EdgeInsets.fromLTRB(24, 0, 24, 20)
+          : MyTheme.dialogActionsPadding(),
+      buttonPadding: desktop
+          ? const EdgeInsets.only(left: 10)
+          : MyTheme.dialogButtonPadding,
+    );
+
     return FocusScope(
       node: scopeNode,
       autofocus: true,
@@ -1148,19 +1215,12 @@ class CustomAlertDialog extends StatelessWidget {
         }
         return KeyEventResult.ignored;
       },
-      child: AlertDialog(
-          scrollable: true,
-          title: title,
-          content: ConstrainedBox(
-            constraints: contentBoxConstraints,
-            child: content,
-          ),
-          actions: actions,
-          titlePadding: titlePadding ?? MyTheme.dialogTitlePadding(),
-          contentPadding:
-              MyTheme.dialogContentPadding(actions: actions is List),
-          actionsPadding: MyTheme.dialogActionsPadding(),
-          buttonPadding: MyTheme.dialogButtonPadding),
+      child: desktop
+          ? Theme(
+              data: DesktopHomeTheme.settingsTheme(context),
+              child: dialog,
+            )
+          : dialog,
     );
   }
 }
@@ -3044,13 +3104,30 @@ Widget dialogButton(String text,
     TextStyle? style,
     ButtonStyle? buttonStyle}) {
   if (isDesktop || isWebDesktop) {
+    final commonStyle = ButtonStyle(
+      elevation: const MaterialStatePropertyAll(0),
+      minimumSize: const MaterialStatePropertyAll(Size(0, 36)),
+      padding: const MaterialStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 16),
+      ),
+      textStyle: const MaterialStatePropertyAll(
+        TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      ),
+      shape: MaterialStatePropertyAll(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesktopHomeTheme.controlRadius),
+        ),
+      ),
+    ).merge(buttonStyle);
     if (isOutline) {
       return icon == null
           ? OutlinedButton(
+              style: commonStyle,
               onPressed: onPressed,
               child: Text(translate(text), style: style),
             )
           : OutlinedButton.icon(
+              style: commonStyle,
               icon: icon,
               onPressed: onPressed,
               label: Text(translate(text), style: style),
@@ -3058,13 +3135,13 @@ Widget dialogButton(String text,
     } else {
       return icon == null
           ? ElevatedButton(
-              style: ElevatedButton.styleFrom(elevation: 0).merge(buttonStyle),
+              style: commonStyle,
               onPressed: onPressed,
               child: Text(translate(text), style: style),
             )
           : ElevatedButton.icon(
               icon: icon,
-              style: ElevatedButton.styleFrom(elevation: 0).merge(buttonStyle),
+              style: commonStyle,
               onPressed: onPressed,
               label: Text(translate(text), style: style),
             );
