@@ -2130,72 +2130,84 @@ class _AccountState extends State<_Account> {
     return ListView(
       controller: scrollController,
       children: [
-        _Card(title: 'Account', children: [accountAction(), useInfo()]),
+        _Card(title: 'Account', children: [accountPanel()]),
       ],
     ).marginOnly(bottom: _kListViewBottomMargin);
   }
 
-  Widget accountAction() {
-    return Obx(() => _Button(
-        gFFI.userModel.userName.value.isEmpty
-            ? 'Login'
-            : '${translate('Logout')} (${gFFI.userModel.accountLabelWithHandle})',
-        () => {
-              gFFI.userModel.userName.value.isEmpty
-                  ? loginDialog()
-                  : logOutConfirmDialog()
-            }));
-  }
-
-  Widget useInfo() {
-    return Obx(() => Offstage(
-          offstage: gFFI.userModel.userName.value.isEmpty,
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Builder(builder: (context) {
-              final avatarWidget = _buildUserAvatar();
-              return Row(
+  Widget accountPanel() {
+    return Obx(() {
+      final loggedIn = gFFI.userModel.userName.value.isNotEmpty;
+      final avatarWidget = loggedIn ? _buildUserAvatar() : null;
+      return Container(
+        margin: const EdgeInsets.only(left: _kContentHMargin),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: DesktopHomeTheme.surfaceMuted(context),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: DesktopHomeTheme.border(context)),
+        ),
+        child: Row(
+          children: [
+            if (avatarWidget != null)
+              avatarWidget
+            else
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: DesktopHomeTheme.brand.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.person_outline_rounded,
+                    size: 23, color: DesktopHomeTheme.brand),
+              ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (avatarWidget != null) avatarWidget,
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          gFFI.userModel.displayNameOrUserName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        SelectionArea(
-                          child: Text(
-                            '@${gFFI.userModel.userName.value}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color:
-                                  Theme.of(context).textTheme.bodySmall?.color,
-                            ),
-                          ),
-                        ),
-                      ],
+                  Text(
+                    loggedIn
+                        ? gFFI.userModel.displayNameOrUserName
+                        : translate('Account'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: DesktopHomeTheme.textPrimary(context),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
+                  const SizedBox(height: 3),
+                  Text(
+                    loggedIn
+                        ? '@${gFFI.userModel.userName.value}'
+                        : bind.mainGetAppNameSync(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: DesktopHomeTheme.caption(context),
+                  ),
                 ],
-              );
-            }),
-          ),
-        )).marginOnly(left: 18, top: 16);
+              ),
+            ),
+            const SizedBox(width: 12),
+            if (loggedIn)
+              OutlinedButton(
+                onPressed: logOutConfirmDialog,
+                style: _dangerButtonStyle(context),
+                child: Text(translate('Logout')),
+              )
+            else
+              ElevatedButton(
+                onPressed: loginDialog,
+                child: Text(translate('Login')),
+              ),
+          ],
+        ),
+      );
+    });
   }
 
   Widget? _buildUserAvatar() {
@@ -2436,75 +2448,139 @@ class _AboutState extends State<_About> {
       final buildDate = data['buildDate'].toString();
       final fingerprint = data['fingerprint'].toString();
       final myId = data['myId'].toString();
-      const linkStyle = TextStyle(decoration: TextDecoration.underline);
       final scrollController = ScrollController();
+
+      Widget infoRow(String label, String value) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: DesktopHomeTheme.border(context)),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 96,
+                child: Text(
+                  translate(label),
+                  style: DesktopHomeTheme.caption(context),
+                ),
+              ),
+              Expanded(
+                child: SelectionArea(
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      color: DesktopHomeTheme.textPrimary(context),
+                      fontSize: 13,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      Widget linkButton(String label, String url, IconData icon) {
+        return OutlinedButton.icon(
+          onPressed: () => launchUrlString(url),
+          icon: Icon(icon, size: 16),
+          label: Text(translate(label)),
+        );
+      }
+
       return SingleChildScrollView(
         controller: scrollController,
         child: _Card(title: translate('About RustDesk'), children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(
-                height: 8.0,
-              ),
-              SelectionArea(
-                  child: Text('${translate('Version')}: $version')
-                      .marginSymmetric(vertical: 4.0)),
-              SelectionArea(
-                  child: Text('${translate('Build Date')}: $buildDate')
-                      .marginSymmetric(vertical: 4.0)),
-              if (!isWeb)
-                SelectionArea(
-                    child: Text('${translate('Fingerprint')}: $fingerprint')
-                        .marginSymmetric(vertical: 4.0)),
-              SelectionArea(
-                  child: Text('${translate('ID')}: $myId')
-                      .marginSymmetric(vertical: 4.0)),
-              InkWell(
-                  onTap: () {
-                    launchUrlString('https://rustdesk.com/privacy.html');
-                  },
-                  child: Text(
-                    translate('Privacy Statement'),
-                    style: linkStyle,
-                  ).marginSymmetric(vertical: 4.0)),
-              InkWell(
-                  onTap: () {
-                    launchUrlString('https://rustdesk.com');
-                  },
-                  child: Text(
-                    translate('Website'),
-                    style: linkStyle,
-                  ).marginSymmetric(vertical: 4.0)),
-              Container(
-                decoration: const BoxDecoration(color: Color(0xFF2c8cff)),
-                padding:
-                    const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
-                child: SelectionArea(
-                    child: Row(
+          Container(
+            margin: const EdgeInsets.only(left: _kContentHMargin),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: DesktopHomeTheme.brand.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: loadIcon(30),
+                    ),
+                    const SizedBox(width: 13),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Copyright © ${DateTime.now().toString().substring(0, 4)} Purslane Tech Pte. Ltd.\n$license',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          Text(
-                            translate('Slogan_tip'),
+                            bind.mainGetAppNameSync(),
                             style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white),
-                          )
+                              color: DesktopHomeTheme.textPrimary(context),
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text('${translate('Version')} $version',
+                              style: DesktopHomeTheme.caption(context)),
                         ],
                       ),
                     ),
                   ],
-                )),
-              ).marginSymmetric(vertical: 4.0)
-            ],
-          ).marginOnly(left: _kContentHMargin)
+                ).marginSymmetric(vertical: 8),
+                infoRow('Build Date', buildDate),
+                if (!isWeb) infoRow('Fingerprint', fingerprint),
+                infoRow('ID', myId),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    linkButton(
+                        'Privacy Statement',
+                        'https://rustdesk.com/privacy.html',
+                        Icons.shield_outlined),
+                    linkButton('Website', 'https://rustdesk.com',
+                        Icons.language_rounded),
+                  ],
+                ).marginOnly(top: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: DesktopHomeTheme.surfaceMuted(context),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: DesktopHomeTheme.border(context)),
+                  ),
+                  child: SelectionArea(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          translate('Slogan_tip'),
+                          style: TextStyle(
+                            color: DesktopHomeTheme.textPrimary(context),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Copyright © ${DateTime.now().year} Purslane Tech Pte. Ltd.${license.isEmpty ? '' : '\n$license'}',
+                          style: DesktopHomeTheme.caption(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                ).marginOnly(top: 12, bottom: 2),
+              ],
+            ),
+          ),
         ]),
       );
     });
