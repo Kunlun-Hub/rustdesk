@@ -3276,18 +3276,30 @@ class CkbMenuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CheckboxMenuButton(
+    final enabled = onChanged != null;
+    return MenuItemButton(
       key: key,
-      value: value,
-      child: child,
-      onChanged: onChanged != null
-          ? (bool? value) {
-              if (ffi != null) {
-                _menuDismissCallback(ffi!);
-              }
-              onChanged?.call(value);
+      onPressed: enabled
+          ? () {
+              if (ffi != null) _menuDismissCallback(ffi!);
+              onChanged?.call(!(value ?? false));
             }
           : null,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 20,
+            child: Icon(
+              value == true ? Icons.check_rounded : null,
+              size: 16,
+              color:
+                  value == true ? DesktopHomeTheme.brand : Colors.transparent,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: child ?? const SizedBox.shrink()),
+        ],
+      ),
     );
   }
 }
@@ -3312,19 +3324,31 @@ class RdoMenuButton<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RadioMenuButton(
-      value: value,
-      groupValue: groupValue,
-      child: child,
-      closeOnActivate: closeOnActivate,
-      onChanged: onChanged != null
-          ? (T? value) {
-              if (ffi != null && closeOnActivate) {
-                _menuDismissCallback(ffi!);
-              }
+    final selected = value == groupValue;
+    final enabled = onChanged != null;
+    return MenuItemButton(
+      onPressed: enabled
+          ? () {
+              if (ffi != null && closeOnActivate) _menuDismissCallback(ffi!);
               onChanged?.call(value);
             }
           : null,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 20,
+            child: Icon(
+              selected ? Icons.radio_button_checked : Icons.radio_button_off,
+              size: 16,
+              color: selected
+                  ? DesktopHomeTheme.brand
+                  : DesktopHomeTheme.textSecondary(context),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: child ?? const SizedBox.shrink()),
+        ],
+      ),
     );
   }
 }
