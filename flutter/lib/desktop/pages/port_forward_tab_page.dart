@@ -7,6 +7,7 @@ import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:flutter_hbb/desktop/pages/port_forward_page.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
+import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
 import 'package:get/get.dart';
 
@@ -99,7 +100,7 @@ class _PortForwardTabPageState extends State<PortForwardTabPage> {
   @override
   Widget build(BuildContext context) {
     final child = Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: DesktopHomeTheme.canvas(context),
       body: DesktopTab(
         controller: tabController,
         onWindowCloseButton: () async {
@@ -115,8 +116,7 @@ class _PortForwardTabPageState extends State<PortForwardTabPage> {
         ? buildVirtualWindowFrame(
             context,
             Scaffold(
-                backgroundColor: Theme.of(context).colorScheme.background,
-                body: child),
+                backgroundColor: DesktopHomeTheme.canvas(context), body: child),
           )
         : workaroundWindowBorder(
             context,

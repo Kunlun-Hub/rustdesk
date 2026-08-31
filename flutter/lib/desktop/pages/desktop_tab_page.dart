@@ -103,6 +103,8 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
                   icon: IconFont.menu,
                   onTap: DesktopTabPage.onAddSetting,
                   isClose: false,
+                  iconSize: 14,
+                  boxSize: 39,
                 ),
               ),
             )));

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
+import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/models/chat_model.dart';
 import 'package:flutter_hbb/models/cm_file_model.dart';
 import 'package:flutter_hbb/utils/platform_channel.dart';
@@ -66,7 +67,9 @@ class _DesktopServerPageState extends State<DesktopServerPage>
     // Other platforms keep the old behaviour exactly: the ambiguity this guards against is a
     // Linux session logout, which closes every window in the session.
     final byOperator = _cmClosedByOperator || !isLinux;
-    Future.wait([gFFI.serverModel.closeAll(byOperator: byOperator), gFFI.close()]).then((_) {
+    Future.wait(
+            [gFFI.serverModel.closeAll(byOperator: byOperator), gFFI.close()])
+        .then((_) {
       if (isMacOS) {
         RdPlatformChannel.instance.terminate();
       } else {
@@ -94,7 +97,7 @@ class _DesktopServerPageState extends State<DesktopServerPage>
       child: Consumer<ServerModel>(
         builder: (context, serverModel, child) {
           final body = Scaffold(
-            backgroundColor: Theme.of(context).colorScheme.background,
+            backgroundColor: DesktopHomeTheme.canvas(context),
             body: ConnectionManager(),
           );
           return isLinux
@@ -189,7 +192,30 @@ class ConnectionManagerState extends State<ConnectionManager>
               buildTitleBar(),
               Expanded(
                 child: Center(
-                  child: Text(translate("Waiting")),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: DesktopHomeTheme.brand.withOpacity(0.10),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.support_agent_rounded,
+                            size: 25, color: DesktopHomeTheme.brand),
+                      ),
+                      const SizedBox(height: 13),
+                      Text(translate('Waiting for connections'),
+                          style: TextStyle(
+                              color: DesktopHomeTheme.textPrimary(context),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 5),
+                      Text(translate('Incoming sessions will appear here'),
+                          style: DesktopHomeTheme.caption(context)),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -267,7 +293,7 @@ class ConnectionManagerState extends State<ConnectionManager>
                                   ))),
                   ]);
                   return Container(
-                    color: Theme.of(context).scaffoldBackgroundColor,
+                    color: DesktopHomeTheme.canvas(context),
                     child: row,
                   );
                 },
@@ -295,7 +321,7 @@ class ConnectionManagerState extends State<ConnectionManager>
 
   Widget buildTitleBar() {
     return SizedBox(
-      height: kDesktopRemoteTabBarHeight,
+      height: kDesktopMainTabBarHeight,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -306,7 +332,7 @@ class ConnectionManagerState extends State<ConnectionManager>
                 windowManager.startDragging();
               },
               child: Container(
-                color: Theme.of(context).colorScheme.background,
+                color: DesktopHomeTheme.navigation(context),
               ),
             ),
           ),
@@ -457,15 +483,9 @@ class _CmHeaderState extends State<_CmHeader>
     super.build(context);
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10.0),
-        gradient: LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [
-            Color(0xff00bfe1),
-            Color(0xff0071ff),
-          ],
-        ),
+        color: DesktopHomeTheme.surface(context),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: DesktopHomeTheme.border(context)),
       ),
       margin: EdgeInsets.symmetric(horizontal: 5.0, vertical: 10.0),
       padding: EdgeInsets.only(
@@ -487,9 +507,9 @@ class _CmHeaderState extends State<_CmHeader>
                     child: Text(
                   client.name,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: DesktopHomeTheme.textPrimary(context),
                     fontWeight: FontWeight.bold,
-                    fontSize: 20,
+                    fontSize: 17,
                     overflow: TextOverflow.ellipsis,
                   ),
                   maxLines: 1,
@@ -497,35 +517,35 @@ class _CmHeaderState extends State<_CmHeader>
                 FittedBox(
                   child: Text(
                     "(${client.peerId})",
-                    style: TextStyle(color: Colors.white, fontSize: 14),
+                    style: DesktopHomeTheme.caption(context),
                   ),
                 ),
                 if (client.type_() == ClientType.terminal)
                   FittedBox(
                     child: Text(
                       translate("Terminal"),
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                      style: DesktopHomeTheme.caption(context),
                     ),
                   ),
                 if (client.type_() == ClientType.file)
                   FittedBox(
                     child: Text(
                       translate("Transfer file"),
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                      style: DesktopHomeTheme.caption(context),
                     ),
                   ),
                 if (client.type_() == ClientType.camera)
                   FittedBox(
                     child: Text(
                       translate("View camera"),
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                      style: DesktopHomeTheme.caption(context),
                     ),
                   ),
                 if (client.portForward.isNotEmpty)
                   FittedBox(
                     child: Text(
                       "Port Forward: ${client.portForward}",
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                      style: DesktopHomeTheme.caption(context),
                     ),
                   ),
                 SizedBox(height: 10.0),
@@ -538,7 +558,13 @@ class _CmHeaderState extends State<_CmHeader>
                               ? translate("Disconnected")
                               : translate("Connected")
                           : "${translate("Request access to your device")}...",
-                      style: TextStyle(color: Colors.white),
+                      style: TextStyle(
+                        color: client.disconnected
+                            ? DesktopHomeTheme.textSecondary(context)
+                            : DesktopHomeTheme.success,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ).marginOnly(right: 8.0),
                     if (client.authorized)
                       Obx(
@@ -546,7 +572,7 @@ class _CmHeaderState extends State<_CmHeader>
                           formatDurationToTime(
                             Duration(seconds: _time.value),
                           ),
-                          style: TextStyle(color: Colors.white),
+                          style: DesktopHomeTheme.caption(context),
                         ),
                       )
                   ],
@@ -586,7 +612,7 @@ class _CmHeaderState extends State<_CmHeader>
     return buildAvatarWidget(
           avatar: client.avatar,
           size: 70,
-          borderRadius: 15,
+          borderRadius: 12,
           fallback: _buildInitialAvatar(),
         ) ??
         _buildInitialAvatar();
@@ -598,15 +624,15 @@ class _CmHeaderState extends State<_CmHeader>
       height: 70,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: str2color(client.name),
-        borderRadius: BorderRadius.circular(15.0),
+        color: DesktopHomeTheme.brand.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         client.name.isNotEmpty ? client.name[0] : '?',
         style: TextStyle(
           fontWeight: FontWeight.bold,
-          color: Colors.white,
-          fontSize: 55,
+          color: DesktopHomeTheme.brand,
+          fontSize: 32,
         ),
       ),
     );
@@ -633,9 +659,14 @@ class _PrivilegeBoardState extends State<_PrivilegeBoard> {
       child: Container(
         decoration: BoxDecoration(
           color: enabled
-              ? (canModify ? MyTheme.accent : MyTheme.accent.withOpacity(0.6))
-              : Colors.grey[700],
-          borderRadius: BorderRadius.circular(10.0),
+              ? DesktopHomeTheme.brand.withOpacity(canModify ? 0.12 : 0.08)
+              : DesktopHomeTheme.surfaceMuted(context),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: enabled
+                ? DesktopHomeTheme.brand.withOpacity(0.30)
+                : DesktopHomeTheme.border(context),
+          ),
         ),
         padding: EdgeInsets.all(8.0),
         child: InkWell(
@@ -649,7 +680,9 @@ class _PrivilegeBoardState extends State<_PrivilegeBoard> {
               Expanded(
                 child: Icon(
                   iconData,
-                  color: Colors.white,
+                  color: enabled
+                      ? DesktopHomeTheme.brand
+                      : DesktopHomeTheme.textSecondary(context),
                 ),
               ),
             ],
@@ -670,25 +703,17 @@ class _PrivilegeBoardState extends State<_PrivilegeBoard> {
       width: double.infinity,
       height: 160.0,
       margin: EdgeInsets.all(5.0),
-      padding: EdgeInsets.all(5.0),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10.0),
-        color: Theme.of(context).colorScheme.background,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            spreadRadius: 1,
-            blurRadius: 1,
-            offset: Offset(0, 1.5),
-          ),
-        ],
-      ),
+      padding: EdgeInsets.all(8.0),
+      decoration: DesktopHomeTheme.card(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
             translate("Permissions"),
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: TextStyle(
+                color: DesktopHomeTheme.textPrimary(context),
+                fontSize: 14,
+                fontWeight: FontWeight.w600),
             textAlign: TextAlign.center,
           ).marginOnly(left: 4.0, bottom: 8.0),
           Expanded(
@@ -929,8 +954,9 @@ class _CmControlPanel extends StatelessWidget {
                                 value: d,
                                 groupValue: currentDevice,
                                 onChanged: (v) {
-                                  if (v != null)
+                                  if (v != null) {
                                     AudioInput.setDevice(v, true, true);
+                                  }
                                 },
                                 child: Container(
                                   child: Text(

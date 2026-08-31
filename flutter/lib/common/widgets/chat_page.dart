@@ -4,6 +4,7 @@ import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/models/chat_model.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import '../../desktop/theme/desktop_home_theme.dart';
 
 import '../../mobile/pages/home_page.dart';
 
@@ -79,7 +80,7 @@ class ChatPage extends StatelessWidget implements PageShape {
     return ChangeNotifierProvider.value(
       value: chatModel,
       child: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
+        color: DesktopHomeTheme.surface(context),
         child: Consumer<ChatModel>(
           builder: (context, chatModel, child) {
             final readOnly = type == ChatPageType.mobileMain &&
@@ -113,7 +114,7 @@ class ChatPage extends StatelessWidget implements PageShape {
                         isDense: true,
                         hintText: translate('Write a message'),
                         filled: true,
-                        fillColor: Theme.of(context).colorScheme.background,
+                        fillColor: DesktopHomeTheme.surfaceMuted(context),
                         contentPadding: EdgeInsets.all(10),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10.0),
@@ -158,8 +159,11 @@ class ChatPage extends StatelessWidget implements PageShape {
                           (message, previousMessage, nextMessage) {
                         final isOwnMessage = message.user.id.isBlank!;
                         return defaultMessageDecoration(
-                          color:
-                              isOwnMessage ? MyTheme.accent : Colors.blueGrey,
+                          color: isOwnMessage
+                              ? DesktopHomeTheme.brand
+                              : (DesktopHomeTheme.isDark(context)
+                                  ? const Color(0xFF343B48)
+                                  : const Color(0xFF596579)),
                           borderTopLeft: 8,
                           borderTopRight: 8,
                           borderBottomRight: isOwnMessage ? 2 : 8,

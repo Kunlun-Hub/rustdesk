@@ -14,6 +14,7 @@ import 'package:flutter_breadcrumb/flutter_breadcrumb.dart';
 import 'package:flutter_hbb/desktop/widgets/list_search_action_listener.dart';
 import 'package:flutter_hbb/desktop/widgets/menu_button.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
+import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/models/file_model.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
@@ -163,20 +164,26 @@ class _FileManagerPageState extends State<FileManagerPage>
     return Overlay(key: _overlayKeyState.key, initialEntries: [
       OverlayEntry(builder: (_) {
         return willPopScope(Scaffold(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          body: Row(
-            children: [
-              if (!isWeb)
+          backgroundColor: DesktopHomeTheme.canvas(context),
+          body: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                if (!isWeb) ...[
+                  Flexible(
+                      flex: 3,
+                      child: dropArea(FileManagerView(
+                          model.localController, _ffi, _mouseFocusScope))),
+                  const SizedBox(width: 10),
+                ],
                 Flexible(
                     flex: 3,
                     child: dropArea(FileManagerView(
-                        model.localController, _ffi, _mouseFocusScope))),
-              Flexible(
-                  flex: 3,
-                  child: dropArea(FileManagerView(
-                      model.remoteController, _ffi, _mouseFocusScope))),
-              Flexible(flex: 2, child: statusList())
-            ],
+                        model.remoteController, _ffi, _mouseFocusScope))),
+                const SizedBox(width: 10),
+                Flexible(flex: 2, child: statusList())
+              ],
+            ),
           ),
         ));
       })
@@ -199,10 +206,8 @@ class _FileManagerPageState extends State<FileManagerPage>
   Widget generateCard(Widget child) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.all(
-          Radius.circular(15.0),
-        ),
+        color: DesktopHomeTheme.surfaceMuted(context),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: child,
     );
@@ -367,34 +372,64 @@ class _FileManagerPageState extends State<FileManagerPage>
     return PreferredSize(
       preferredSize: const Size(200, double.infinity),
       child: Container(
-          margin: const EdgeInsets.only(top: 16.0, bottom: 16.0, right: 16.0),
-          padding: const EdgeInsets.all(8.0),
-          child: Obx(
-            () => jobController.jobTable.isEmpty
-                ? generateCard(
-                    Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SvgPicture.asset(
-                            "assets/transfer.svg",
-                            colorFilter: svgColor(
-                                Theme.of(context).tabBarTheme.labelColor),
-                            height: 40,
-                          ).paddingOnly(bottom: 10),
-                          Text(
-                            translate("No transfers in progress"),
-                            textAlign: TextAlign.center,
-                            textScaler: TextScaler.linear(1.20),
-                            style: TextStyle(
-                                color:
-                                    Theme.of(context).tabBarTheme.labelColor),
-                          ),
-                        ],
+          padding: const EdgeInsets.all(10),
+          decoration: DesktopHomeTheme.card(context),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 2, 4, 10),
+                child: Row(
+                  children: [
+                    const Icon(Icons.swap_vert_rounded,
+                        size: 18, color: DesktopHomeTheme.brand),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        translate('Transfer Tasks'),
+                        style: TextStyle(
+                          color: DesktopHomeTheme.textPrimary(context),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  )
-                : statusListView(jobController.jobTable),
+                    Obx(() => Text(
+                          jobController.jobTable.length.toString(),
+                          style: DesktopHomeTheme.caption(context),
+                        )),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: DesktopHomeTheme.border(context)),
+              const SizedBox(height: 10),
+              Expanded(
+                child: Obx(
+                  () => jobController.jobTable.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SvgPicture.asset(
+                                "assets/transfer.svg",
+                                colorFilter: svgColor(
+                                    DesktopHomeTheme.textSecondary(context)),
+                                height: 32,
+                              ).paddingOnly(bottom: 12),
+                              Text(
+                                translate("No transfers in progress"),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    color: DesktopHomeTheme.textSecondary(
+                                        context)),
+                              ),
+                            ],
+                          ),
+                        )
+                      : statusListView(jobController.jobTable),
+                ),
+              ),
+            ],
           )),
     );
   }
@@ -477,8 +512,8 @@ class _FileManagerViewState extends State<FileManagerView> {
   Widget build(BuildContext context) {
     _handleColumnPorportions();
     return Container(
-      margin: const EdgeInsets.all(16.0),
-      padding: const EdgeInsets.all(8.0),
+      padding: const EdgeInsets.all(12),
+      decoration: DesktopHomeTheme.card(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -556,10 +591,10 @@ class _FileManagerViewState extends State<FileManagerView> {
                           width: 50,
                           height: 50,
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.all(Radius.circular(8)),
-                            color: MyTheme.accent,
+                            borderRadius: BorderRadius.circular(10),
+                            color: DesktopHomeTheme.brand.withOpacity(0.10),
                           ),
-                          padding: EdgeInsets.all(8.0),
+                          padding: const EdgeInsets.all(10),
                           child: FutureBuilder<String>(
                               future: bind.sessionGetPlatform(
                                   sessionId: _ffi.sessionId,

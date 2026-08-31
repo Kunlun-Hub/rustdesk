@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
+import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/models/model.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:get/get.dart';
@@ -93,27 +94,25 @@ class _PortForwardPageState extends State<PortForwardPage>
   Widget build(BuildContext context) {
     super.build(context);
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: DesktopHomeTheme.canvas(context),
       body: FutureBuilder(future: () async {
         if (!widget.isRDP) {
           refreshTunnelConfig();
         }
       }(), builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done) {
-          return Container(
-            decoration: BoxDecoration(
-                border: Border.all(
-                    width: 20,
-                    color: Theme.of(context).scaffoldBackgroundColor)),
+          return Padding(
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                _buildPageHeader(context),
+                const SizedBox(height: 14),
                 buildPrompt(context),
-                Flexible(
+                Expanded(
                   child: Container(
-                    decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.background,
-                        border: Border.all(width: 1, color: MyTheme.border)),
+                    decoration: DesktopHomeTheme.card(context),
+                    clipBehavior: Clip.antiAlias,
                     child:
                         widget.isRDP ? buildRdp(context) : buildTunnel(context),
                   ),
@@ -127,25 +126,78 @@ class _PortForwardPageState extends State<PortForwardPage>
     );
   }
 
+  Widget _buildPageHeader(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: DesktopHomeTheme.brand.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            widget.isRDP
+                ? Icons.desktop_windows_outlined
+                : Icons.route_outlined,
+            size: 19,
+            color: DesktopHomeTheme.brand,
+          ),
+        ),
+        const SizedBox(width: 11),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              translate(widget.isRDP ? 'RDP' : 'Port Forwarding'),
+              style: TextStyle(
+                color: DesktopHomeTheme.textPrimary(context),
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(widget.id, style: DesktopHomeTheme.caption(context)),
+          ],
+        ),
+      ],
+    );
+  }
+
   buildPrompt(BuildContext context) {
     return Obx(() => Offstage(
           offstage: pfs.isEmpty && !widget.isRDP,
           child: Container(
-              height: 45,
-              color: const Color(0xFF007F00),
-              child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      translate('Listening ...'),
-                      style: const TextStyle(fontSize: 16, color: Colors.white),
-                    ),
-                    Text(
-                      translate('not_close_tcp_tip'),
-                      style: const TextStyle(
-                          fontSize: 10, color: Color(0xFFDDDDDD), height: 1.2),
-                    )
-                  ])).marginOnly(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: DesktopHomeTheme.success.withOpacity(0.10),
+                borderRadius:
+                    BorderRadius.circular(DesktopHomeTheme.controlRadius),
+                border: Border.all(
+                    color: DesktopHomeTheme.success.withOpacity(0.28)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.check_circle_outline_rounded,
+                    size: 18, color: DesktopHomeTheme.success),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(translate('Listening ...'),
+                          style: TextStyle(
+                              color: DesktopHomeTheme.textPrimary(context),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600)),
+                      Text(translate('not_close_tcp_tip'),
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: DesktopHomeTheme.textSecondary(context),
+                              height: 1.25)),
+                    ],
+                  ),
+                ),
+              ])).marginOnly(bottom: 10),
         ));
   }
 
@@ -163,8 +215,8 @@ class _PortForwardPageState extends State<PortForwardPage>
           itemBuilder: ((context, index) {
             if (index == 0) {
               return Container(
-                height: 25,
-                color: Theme.of(context).scaffoldBackgroundColor,
+                height: 36,
+                color: DesktopHomeTheme.surfaceMuted(context),
                 child: Row(children: [
                   text('Local Port'),
                   const SizedBox(width: _kColumn1Width),
@@ -191,8 +243,11 @@ class _PortForwardPageState extends State<PortForwardPage>
 
     return Container(
       height: _kRowHeight,
-      decoration:
-          BoxDecoration(color: Theme.of(context).colorScheme.background),
+      decoration: BoxDecoration(
+        color: DesktopHomeTheme.surface(context),
+        border:
+            Border(bottom: BorderSide(color: DesktopHomeTheme.border(context))),
+      ),
       child: Row(children: [
         buildTunnelInputCell(context,
             controller: localPortController,
@@ -251,17 +306,22 @@ class _PortForwardPageState extends State<PortForwardPage>
 
   Widget buildTunnelDataRow(BuildContext context, _PortForward pf, int index) {
     text(String label) => Expanded(
-        child: Text(label, style: const TextStyle(fontSize: 20))
+        child: Text(label,
+                style: TextStyle(
+                    color: DesktopHomeTheme.textPrimary(context),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500))
             .marginOnly(left: _kTextLeftMargin));
 
     return Container(
       height: _kRowHeight,
       decoration: BoxDecoration(
-          color: index % 2 == 0
-              ? MyTheme.currentThemeMode() == ThemeMode.dark
-                  ? const Color(0xFF202020)
-                  : const Color(0xFFF4F5F6)
-              : Theme.of(context).colorScheme.background),
+        color: index % 2 == 0
+            ? DesktopHomeTheme.surfaceMuted(context)
+            : DesktopHomeTheme.surface(context),
+        border:
+            Border(bottom: BorderSide(color: DesktopHomeTheme.border(context))),
+      ),
       child: Row(children: [
         text(pf.localPort.toString()),
         const SizedBox(width: _kColumn1Width),
@@ -297,10 +357,12 @@ class _PortForwardPageState extends State<PortForwardPage>
     text1(String label) => Expanded(
         child: Text(translate(label)).marginOnly(left: _kTextLeftMargin));
     text2(String label) => Expanded(
-            child: Text(
-          label,
-          style: const TextStyle(fontSize: 20),
-        ).marginOnly(left: _kTextLeftMargin));
+        child: Text(label,
+                style: TextStyle(
+                    color: DesktopHomeTheme.textPrimary(context),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500))
+            .marginOnly(left: _kTextLeftMargin));
     return Theme(
       data: Theme.of(context)
           .copyWith(colorScheme: Theme.of(context).colorScheme),
@@ -310,8 +372,8 @@ class _PortForwardPageState extends State<PortForwardPage>
           itemBuilder: ((context, index) {
             if (index == 0) {
               return Container(
-                height: 25,
-                color: Theme.of(context).scaffoldBackgroundColor,
+                height: 36,
+                color: DesktopHomeTheme.surfaceMuted(context),
                 child: Row(children: [
                   text1('Local Port'),
                   const SizedBox(width: _kColumn1Width),
@@ -323,7 +385,11 @@ class _PortForwardPageState extends State<PortForwardPage>
               return Container(
                 height: _kRowHeight,
                 decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.background),
+                  color: DesktopHomeTheme.surface(context),
+                  border: Border(
+                      bottom:
+                          BorderSide(color: DesktopHomeTheme.border(context))),
+                ),
                 child: Row(children: [
                   Expanded(
                     child: Align(

@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
+import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:get/get.dart';
@@ -46,7 +47,7 @@ class _InstallPageState extends State<InstallPage> {
       enableResizeEdges: windowManagerEnableResizeEdges,
       child: Container(
         child: Scaffold(
-            backgroundColor: Theme.of(context).colorScheme.background,
+            backgroundColor: DesktopHomeTheme.canvas(context),
             body: DesktopTab(controller: tabController)),
       ),
     );
@@ -129,124 +130,171 @@ class _InstallPageBodyState extends State<_InstallPageBody>
   @override
   Widget build(BuildContext context) {
     final double em = 13;
-    final isDarkTheme = MyTheme.currentThemeMode() == ThemeMode.dark;
     return Scaffold(
-        backgroundColor: null,
+        backgroundColor: DesktopHomeTheme.canvas(context),
         body: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(translate('Installation'),
-                  style: Theme.of(context).textTheme.headlineMedium),
-              Row(
-                children: [
-                  Text('${translate('Installation Path')}:')
-                      .marginOnly(right: 10),
-                  Expanded(
-                    child: TextField(
-                      controller: controller,
-                      readOnly: true,
-                      decoration: InputDecoration(
-                        contentPadding: EdgeInsets.all(0.75 * em),
-                      ),
-                    ).workaroundFreezeLinuxMint().marginOnly(right: 10),
-                  ),
-                  Obx(
-                    () => OutlinedButton.icon(
-                      icon: Icon(Icons.folder_outlined, size: 16),
-                      onPressed: btnEnabled.value ? selectInstallPath : null,
-                      style: buttonStyle,
-                      label: Text(translate('Change Path')),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 720),
+            margin: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            padding: const EdgeInsets.all(22),
+            decoration: DesktopHomeTheme.card(context),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      color: DesktopHomeTheme.brand.withOpacity(0.10),
+                      borderRadius: BorderRadius.circular(11),
                     ),
-                  )
-                ],
-              ).marginSymmetric(vertical: 2 * em),
-              Option(startmenu, label: 'Create start menu shortcuts')
-                  .marginOnly(bottom: 7),
-              Option(desktopicon, label: 'Create desktop icon')
-                  .marginOnly(bottom: 7),
-              Option(printer, label: 'Install {$appName} Printer'),
-              Container(
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isDarkTheme
-                        ? Color.fromARGB(135, 87, 87, 90)
-                        : Colors.grey[100],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey),
+                    child: loadIcon(24),
                   ),
-                  child: Row(
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.info_outline_rounded, size: 32)
-                          .marginOnly(right: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(translate('agreement_tip'))
-                              .marginOnly(bottom: em),
-                          InkWell(
-                            hoverColor: Colors.transparent,
-                            onTap: () => launchUrlString(
-                                'https://rustdesk.com/privacy.html'),
-                            child: Tooltip(
-                              message: 'https://rustdesk.com/privacy.html',
-                              child: Row(children: [
-                                Icon(Icons.launch_outlined, size: 16)
-                                    .marginOnly(right: 5),
-                                Text(
-                                  translate('End-user license agreement'),
-                                  style: const TextStyle(
-                                      decoration: TextDecoration.underline),
-                                )
-                              ]),
-                            ),
-                          ),
-                        ],
-                      )
+                      Text(translate('Installation'),
+                          style: TextStyle(
+                              color: DesktopHomeTheme.textPrimary(context),
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700)),
+                      Text(bind.mainGetAppNameSync(),
+                          style: DesktopHomeTheme.caption(context)),
                     ],
-                  )).marginSymmetric(vertical: 2 * em),
-              Row(
-                children: [
-                  Expanded(
-                    // NOT use Offstage to wrap LinearProgressIndicator
-                    child: Obx(() => showProgress.value
-                        ? LinearProgressIndicator().marginOnly(right: 10)
-                        : Offstage()),
                   ),
-                  Obx(
-                    () => OutlinedButton.icon(
-                      icon: Icon(Icons.close_rounded, size: 16),
-                      label: Text(translate('Cancel')),
-                      onPressed:
-                          btnEnabled.value ? () => windowManager.close() : null,
-                      style: buttonStyle,
-                    ).marginOnly(right: 10),
-                  ),
-                  Obx(
-                    () => ElevatedButton.icon(
-                      icon: Icon(Icons.done_rounded, size: 16),
-                      label: Text(translate('Accept and Install')),
-                      onPressed: btnEnabled.value ? install : null,
-                      style: buttonStyle,
+                ]),
+                const SizedBox(height: 22),
+                Text(translate('Installation Path'),
+                    style: DesktopHomeTheme.caption(context)),
+                const SizedBox(height: 7),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: controller,
+                        readOnly: true,
+                        decoration: InputDecoration(
+                          contentPadding: EdgeInsets.all(0.75 * em),
+                        ),
+                      ).workaroundFreezeLinuxMint().marginOnly(right: 10),
                     ),
-                  ),
-                  Offstage(
-                    offstage: bind.installShowRunWithoutInstall(),
-                    child: Obx(
+                    Obx(
                       () => OutlinedButton.icon(
-                        icon: Icon(Icons.screen_share_outlined, size: 16),
-                        label: Text(translate('Run without install')),
+                        icon: Icon(Icons.folder_outlined, size: 16),
+                        onPressed: btnEnabled.value ? selectInstallPath : null,
+                        style: buttonStyle,
+                        label: Text(translate('Change Path')),
+                      ),
+                    )
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Text(translate('Installation Options'),
+                    style: TextStyle(
+                        color: DesktopHomeTheme.textPrimary(context),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: DesktopHomeTheme.surfaceMuted(context),
+                    borderRadius:
+                        BorderRadius.circular(DesktopHomeTheme.controlRadius),
+                  ),
+                  child: Column(children: [
+                    Option(startmenu, label: 'Create start menu shortcuts'),
+                    Option(desktopicon, label: 'Create desktop icon'),
+                    Option(printer, label: 'Install {$appName} Printer'),
+                  ]),
+                ),
+                Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: DesktopHomeTheme.brand.withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: DesktopHomeTheme.brand.withOpacity(0.18)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline_rounded,
+                                size: 24, color: DesktopHomeTheme.brand)
+                            .marginOnly(right: 16),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(translate('agreement_tip'))
+                                .marginOnly(bottom: em),
+                            InkWell(
+                              hoverColor: Colors.transparent,
+                              onTap: () => launchUrlString(
+                                  'https://rustdesk.com/privacy.html'),
+                              child: Tooltip(
+                                message: 'https://rustdesk.com/privacy.html',
+                                child: Row(children: [
+                                  Icon(Icons.launch_outlined, size: 16)
+                                      .marginOnly(right: 5),
+                                  Text(
+                                    translate('End-user license agreement'),
+                                    style: const TextStyle(
+                                        decoration: TextDecoration.underline),
+                                  )
+                                ]),
+                              ),
+                            ),
+                          ],
+                        )
+                      ],
+                    )).marginSymmetric(vertical: 2 * em),
+                Row(
+                  children: [
+                    Expanded(
+                      // NOT use Offstage to wrap LinearProgressIndicator
+                      child: Obx(() => showProgress.value
+                          ? LinearProgressIndicator().marginOnly(right: 10)
+                          : Offstage()),
+                    ),
+                    Obx(
+                      () => OutlinedButton.icon(
+                        icon: Icon(Icons.close_rounded, size: 16),
+                        label: Text(translate('Cancel')),
                         onPressed: btnEnabled.value
-                            ? () => bind.installRunWithoutInstall()
+                            ? () => windowManager.close()
                             : null,
                         style: buttonStyle,
-                      ).marginOnly(left: 10),
+                      ).marginOnly(right: 10),
                     ),
-                  ),
-                ],
-              )
-            ],
-          ).paddingSymmetric(horizontal: 4 * em, vertical: 3 * em),
+                    Obx(
+                      () => ElevatedButton.icon(
+                        icon: Icon(Icons.done_rounded, size: 16),
+                        label: Text(translate('Accept and Install')),
+                        onPressed: btnEnabled.value ? install : null,
+                        style: buttonStyle,
+                      ),
+                    ),
+                    Offstage(
+                      offstage: bind.installShowRunWithoutInstall(),
+                      child: Obx(
+                        () => OutlinedButton.icon(
+                          icon: Icon(Icons.screen_share_outlined, size: 16),
+                          label: Text(translate('Run without install')),
+                          onPressed: btnEnabled.value
+                              ? () => bind.installRunWithoutInstall()
+                              : null,
+                          style: buttonStyle,
+                        ).marginOnly(left: 10),
+                      ),
+                    ),
+                  ],
+                )
+              ],
+            ),
+          ),
         ));
   }
 

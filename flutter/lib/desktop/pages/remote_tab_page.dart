@@ -12,6 +12,7 @@ import 'package:flutter_hbb/models/state_model.dart';
 import 'package:flutter_hbb/desktop/pages/remote_page.dart';
 import 'package:flutter_hbb/desktop/widgets/remote_toolbar.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
+import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/desktop/widgets/material_mod_popup_menu.dart'
     as mod_menu;
 import 'package:flutter_hbb/desktop/widgets/popup_menu.dart';
@@ -181,11 +182,22 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
                 icon,
                 Tooltip(
                   message: '$msgConn\n$msgFingerprint',
-                  child: SvgPicture.asset(
-                    'assets/${connectionType.secure.value}${connectionType.direct.value}.svg',
-                    width: themeConf.iconSize,
-                    height: themeConf.iconSize,
-                  ).paddingOnly(right: 5),
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    margin: const EdgeInsets.only(right: 5),
+                    decoration: BoxDecoration(
+                      color: (secure
+                              ? DesktopHomeTheme.success
+                              : DesktopHomeTheme.warning)
+                          .withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: SvgPicture.asset(
+                      'assets/${connectionType.secure.value}${connectionType.direct.value}.svg',
+                      width: themeConf.iconSize - 2,
+                      height: themeConf.iconSize - 2,
+                    ),
+                  ),
                 ),
                 label,
                 unreadMessageCountBuilder(UnreadChatCountState.find(key))

@@ -11,6 +11,7 @@ import 'package:flutter_hbb/common/widgets/setting_widgets.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
+import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/desktop/widgets/remote_toolbar.dart';
 import 'package:flutter_hbb/mobile/widgets/dialog.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
@@ -25,16 +26,15 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../../common/widgets/dialog.dart';
 import '../../common/widgets/login.dart';
 
-const double _kTabWidth = 200;
-const double _kTabHeight = 42;
-const double _kCardFixedWidth = 540;
+const double _kTabWidth = 224;
+const double _kTabHeight = 40;
+const double _kCardFixedWidth = 620;
 const double _kCardLeftMargin = 15;
 const double _kContentHMargin = 15;
 const double _kContentHSubMargin = _kContentHMargin + 33;
 const double _kCheckBoxLeftMargin = 10;
 const double _kRadioLeftMargin = 10;
 const double _kListViewBottomMargin = 15;
-const double _kTitleFontSize = 20;
 const double _kContentFontSize = 15;
 const Color _accentColor = MyTheme.accent;
 const String _kSettingPageControllerTag = 'settingPageController';
@@ -274,22 +274,26 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
   Widget build(BuildContext context) {
     super.build(context);
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: DesktopHomeTheme.canvas(context),
       body: _buildBlock(
         children: <Widget>[
           SizedBox(
             width: _kTabWidth,
-            child: Column(
-              children: [
-                _header(context),
-                Flexible(child: _listView(tabs: _settingTabs())),
-              ],
+            child: ColoredBox(
+              color: DesktopHomeTheme.navigation(context),
+              child: Column(
+                children: [
+                  _header(context),
+                  Flexible(child: _listView(tabs: _settingTabs())),
+                ],
+              ),
             ),
           ),
-          const VerticalDivider(width: 1),
+          VerticalDivider(width: 1, color: DesktopHomeTheme.border(context)),
           Expanded(
             child: Container(
-              color: Theme.of(context).scaffoldBackgroundColor,
+              color: DesktopHomeTheme.canvas(context),
+              padding: const EdgeInsets.only(left: 12, right: 18),
               child: PageView(
                 controller: controller,
                 physics: NeverScrollableScrollPhysics(),
@@ -306,10 +310,10 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
     final settingsText = Text(
       translate('Settings'),
       textAlign: TextAlign.left,
-      style: const TextStyle(
-        color: _accentColor,
-        fontSize: _kTitleFontSize,
-        fontWeight: FontWeight.w400,
+      style: TextStyle(
+        color: DesktopHomeTheme.textPrimary(context),
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
       ),
     );
     return Row(
@@ -325,7 +329,7 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
           ).marginOnly(left: 5),
         if (isWeb)
           SizedBox(
-            height: 62,
+            height: 58,
             child: Align(
               alignment: Alignment.center,
               child: settingsText,
@@ -345,6 +349,7 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
     final scrollController = ScrollController();
     return ListView(
       controller: scrollController,
+      padding: const EdgeInsets.fromLTRB(12, 2, 12, 16),
       children: tabs.map((tab) => _listItem(tab: tab)).toList(),
     );
   }
@@ -352,10 +357,18 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
   Widget _listItem({required _TabInfo tab}) {
     return Obx(() {
       bool selected = tab.key == selectedTab.value;
-      return SizedBox(
+      return Container(
         width: _kTabWidth,
         height: _kTabHeight,
+        margin: const EdgeInsets.only(bottom: 4),
+        decoration: BoxDecoration(
+          color: selected
+              ? DesktopHomeTheme.brand.withOpacity(0.10)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(DesktopHomeTheme.controlRadius),
+        ),
         child: InkWell(
+          borderRadius: BorderRadius.circular(DesktopHomeTheme.controlRadius),
           onTap: () {
             if (selectedTab.value != tab.key) {
               int index = DesktopSettingPage.tabKeys.indexOf(tab.key);
@@ -367,22 +380,21 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
             selectedTab.value = tab.key;
           },
           child: Row(children: [
-            Container(
-              width: 4,
-              height: _kTabHeight * 0.7,
-              color: selected ? _accentColor : null,
-            ),
             Icon(
               selected ? tab.selected : tab.unselected,
-              color: selected ? _accentColor : null,
-              size: 20,
-            ).marginOnly(left: 13, right: 10),
+              color: selected
+                  ? DesktopHomeTheme.brand
+                  : DesktopHomeTheme.textSecondary(context),
+              size: 18,
+            ).marginOnly(left: 12, right: 10),
             Text(
               translate(tab.label),
               style: TextStyle(
-                  color: selected ? _accentColor : null,
-                  fontWeight: FontWeight.w400,
-                  fontSize: _kContentFontSize),
+                  color: selected
+                      ? DesktopHomeTheme.textPrimary(context)
+                      : DesktopHomeTheme.textSecondary(context),
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  fontSize: 13),
             ),
           ]),
         ),
@@ -483,7 +495,10 @@ class _GeneralState extends State<_General> {
     final incomingOnly = bind.isIncomingOnly();
     final outgoingOnly = bind.isOutgoingOnly();
     final showAutoUpdate = (isWindows && bind.mainIsInstalled()) ||
-    (isMacOS && bind.mainIsInstalled() && bind.mainIsInstalledDaemon(prompt: false) && !bind.isCustomClient());
+        (isMacOS &&
+            bind.mainIsInstalled() &&
+            bind.mainIsInstalledDaemon(prompt: false) &&
+            !bind.isCustomClient());
     final children = <Widget>[
       if (!isWeb && !incomingOnly)
         _OptionCheckBox(context, 'Confirm before closing multiple tabs',
@@ -2508,12 +2523,15 @@ Widget _Card(
     {required String title,
     required List<Widget> children,
     List<Widget>? title_suffix}) {
-  return Row(
-    children: [
-      Flexible(
-        child: SizedBox(
-          width: _kCardFixedWidth,
-          child: Card(
+  return Builder(
+    builder: (context) => Row(
+      children: [
+        Flexible(
+          child: Container(
+            width: _kCardFixedWidth,
+            margin: const EdgeInsets.only(left: _kCardLeftMargin, top: 14),
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
+            decoration: DesktopHomeTheme.card(context),
             child: Column(
               children: [
                 Row(
@@ -2522,21 +2540,28 @@ Widget _Card(
                         child: Text(
                       translate(title),
                       textAlign: TextAlign.start,
-                      style: const TextStyle(
-                        fontSize: _kTitleFontSize,
+                      style: TextStyle(
+                        color: DesktopHomeTheme.textPrimary(context),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
                     )),
                     ...?title_suffix
                   ],
-                ).marginOnly(left: _kContentHMargin, top: 10, bottom: 10),
+                ).marginOnly(left: _kContentHMargin, top: 10, bottom: 8),
+                Divider(
+                  height: 1,
+                  color: DesktopHomeTheme.border(context),
+                ).marginSymmetric(horizontal: _kContentHMargin),
+                const SizedBox(height: 7),
                 ...children
                     .map((e) => e.marginOnly(top: 4, right: _kContentHMargin)),
               ],
-            ).marginOnly(bottom: 10),
-          ).marginOnly(left: _kCardLeftMargin, top: 15),
+            ),
+          ),
         ),
-      ),
-    ],
+      ],
+    ),
   );
 }
 

@@ -5,8 +5,8 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_hbb/common/widgets/connection_page_title.dart';
 import 'package:flutter_hbb/consts.dart';
+import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/desktop/widgets/popup_menu.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:get/get.dart';
@@ -307,20 +307,67 @@ class _ConnectionPageState extends State<ConnectionPage>
     return Column(
       children: [
         Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(28, 24, 28, 0),
             child: Column(
-          children: [
-            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Flexible(child: _buildRemoteIDTextField(context)),
+                Text(
+                  translate('Remote Control'),
+                  style: TextStyle(
+                    color: DesktopHomeTheme.textPrimary(context),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  translate('desk_tip'),
+                  style: TextStyle(
+                    color: DesktopHomeTheme.textSecondary(context),
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _buildRemoteIDTextField(context),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Text(translate('Devices'),
+                        style: DesktopHomeTheme.sectionTitle(context)),
+                    const Spacer(),
+                    Text(translate('Recent Sessions'),
+                        style: DesktopHomeTheme.caption(context)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius:
+                        BorderRadius.circular(DesktopHomeTheme.radius),
+                    child: ColoredBox(
+                      color: DesktopHomeTheme.surface(context),
+                      child: PeerTabPage(),
+                    ),
+                  ),
+                ),
               ],
-            ).marginOnly(top: 22),
-            SizedBox(height: 12),
-            Divider().paddingOnly(right: 12),
-            Expanded(child: PeerTabPage()),
-          ],
-        ).paddingOnly(left: 12.0)),
-        if (!isOutgoingOnly) const Divider(height: 1),
-        if (!isOutgoingOnly) OnlineStatusWidget()
+            ),
+          ),
+        ),
+        if (!isOutgoingOnly)
+          Container(
+            margin: const EdgeInsets.fromLTRB(28, 12, 28, 14),
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            decoration: BoxDecoration(
+              color: DesktopHomeTheme.surface(context),
+              borderRadius:
+                  BorderRadius.circular(DesktopHomeTheme.controlRadius),
+              border: Border.all(color: DesktopHomeTheme.border(context)),
+            ),
+            child: const OnlineStatusWidget(),
+          ),
       ],
     );
   }
@@ -342,15 +389,47 @@ class _ConnectionPageState extends State<ConnectionPage>
   /// Search for a peer.
   Widget _buildRemoteIDTextField(BuildContext context) {
     var w = Container(
-      width: 320 + 20 * 2,
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
-      decoration: BoxDecoration(
-          borderRadius: const BorderRadius.all(Radius.circular(13)),
-          border: Border.all(color: Theme.of(context).colorScheme.background)),
+      constraints: const BoxConstraints(maxWidth: 720),
+      padding: const EdgeInsets.fromLTRB(18, 16, 16, 16),
+      decoration: DesktopHomeTheme.card(context),
       child: Ink(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            getConnectionPageTitle(context, false).marginOnly(bottom: 15),
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: DesktopHomeTheme.brand.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: const Icon(Icons.desktop_windows_outlined,
+                      size: 18, color: DesktopHomeTheme.brand),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        translate('Control Remote Desktop'),
+                        style: TextStyle(
+                          color: DesktopHomeTheme.textPrimary(context),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(translate('Remote ID'),
+                          style: DesktopHomeTheme.caption(context)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 13),
             Row(
               children: [
                 Expanded(
@@ -417,22 +496,41 @@ class _ConnectionPageState extends State<ConnectionPage>
                           enableSuggestions: false,
                           keyboardType: TextInputType.visiblePassword,
                           focusNode: fieldFocusNode,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'WorkSans',
-                            fontSize: 22,
+                            color: DesktopHomeTheme.textPrimary(context),
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
                             height: 1.4,
                           ),
                           maxLines: 1,
                           cursorColor:
                               Theme.of(context).textTheme.titleLarge?.color,
                           decoration: InputDecoration(
-                              filled: false,
+                              filled: true,
+                              fillColor: DesktopHomeTheme.surfaceMuted(context),
                               counterText: '',
                               hintText: _idInputFocused.value
                                   ? null
                                   : translate('Enter Remote ID'),
+                              hintStyle: TextStyle(
+                                  color:
+                                      DesktopHomeTheme.textSecondary(context),
+                                  fontSize: 15),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                    DesktopHomeTheme.controlRadius),
+                                borderSide: BorderSide(
+                                    color: DesktopHomeTheme.border(context)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                    DesktopHomeTheme.controlRadius),
+                                borderSide: const BorderSide(
+                                    color: DesktopHomeTheme.brand, width: 1.4),
+                              ),
                               contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 15, vertical: 13)),
+                                  horizontal: 15, vertical: 12)),
                           controller: fieldTextEditingController,
                           inputFormatters: [IDTextInputFormatter()],
                           onChanged: (v) {
@@ -514,24 +612,35 @@ class _ConnectionPageState extends State<ConnectionPage>
               ],
             ),
             Padding(
-              padding: const EdgeInsets.only(top: 13.0),
+              padding: const EdgeInsets.only(top: 12),
               child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                 SizedBox(
-                  height: 28.0,
+                  height: 38,
                   child: ElevatedButton(
                     onPressed: () {
                       onConnect();
                     },
-                    child: Text(translate("Connect")),
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                            DesktopHomeTheme.controlRadius),
+                      ),
+                    ),
+                    child: Text(translate('Connect'),
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  height: 28.0,
-                  width: 28.0,
+                  height: 38,
+                  width: 38,
                   decoration: BoxDecoration(
-                    border: Border.all(color: Theme.of(context).dividerColor),
-                    borderRadius: BorderRadius.circular(8),
+                    color: DesktopHomeTheme.surfaceMuted(context),
+                    border: Border.all(color: DesktopHomeTheme.border(context)),
+                    borderRadius:
+                        BorderRadius.circular(DesktopHomeTheme.controlRadius),
                   ),
                   child: Center(
                     child: StatefulBuilder(
@@ -610,7 +719,6 @@ class _ConnectionPageState extends State<ConnectionPage>
         ),
       ),
     );
-    return Container(
-        constraints: const BoxConstraints(maxWidth: 600), child: w);
+    return w;
   }
 }

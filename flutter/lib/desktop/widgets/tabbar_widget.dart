@@ -10,6 +10,7 @@ import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/remote_page.dart';
 import 'package:flutter_hbb/desktop/pages/view_camera_page.dart';
+import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/main.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
@@ -321,6 +322,9 @@ class _DesktopTabState extends State<DesktopTab>
   Rx<DesktopTabState> get state => controller.state;
 
   DesktopTabType get tabType => controller.tabType;
+  double get tabBarHeight => tabType == DesktopTabType.main
+      ? kDesktopMainTabBarHeight
+      : _kTabBarHeight;
   bool get isMainWindow =>
       tabType == DesktopTabType.main ||
       tabType == DesktopTabType.cm ||
@@ -516,12 +520,11 @@ class _DesktopTabState extends State<DesktopTab>
             !(kUseCompatibleUiMode && isHideSingleItem())) {
           final showBottomDivider = _showTabBarBottomDivider(tabType);
           return SizedBox(
-            height: _kTabBarHeight,
+            height: tabBarHeight,
             child: Column(
               children: [
                 SizedBox(
-                  height:
-                      showBottomDivider ? _kTabBarHeight - 1 : _kTabBarHeight,
+                  height: showBottomDivider ? tabBarHeight - 1 : tabBarHeight,
                   child: _buildBar(),
                 ),
                 if (showBottomDivider)
@@ -594,107 +597,123 @@ class _DesktopTabState extends State<DesktopTab>
 
   Widget _buildBar() {
     final isIncomingHomePage = bind.isIncomingOnly() && isInHomePage();
-    return Row(
-      children: [
-        Expanded(
-            child: GestureDetector(
-                // custom double tap handler
-                onTap: !isIncomingHomePage && showMaximize
-                    ? () {
-                        final current = DateTime.now().millisecondsSinceEpoch;
-                        final elapsed = current - _lastClickTime;
-                        _lastClickTime = current;
-                        if (elapsed < bind.getDoubleClickTime()) {
-                          // onDoubleTap
-                          toggleMaximize(isMainWindow)
-                              .then((value) => stateGlobal.setMaximized(value));
+    final mainShell = tabType == DesktopTabType.main;
+    return ColoredBox(
+      color:
+          mainShell ? DesktopHomeTheme.navigation(context) : Colors.transparent,
+      child: Row(
+        children: [
+          Expanded(
+              child: GestureDetector(
+                  // custom double tap handler
+                  onTap: !isIncomingHomePage && showMaximize
+                      ? () {
+                          final current = DateTime.now().millisecondsSinceEpoch;
+                          final elapsed = current - _lastClickTime;
+                          _lastClickTime = current;
+                          if (elapsed < bind.getDoubleClickTime()) {
+                            // onDoubleTap
+                            toggleMaximize(isMainWindow).then(
+                                (value) => stateGlobal.setMaximized(value));
+                          }
                         }
-                      }
-                    : (isIncomingHomePage ? () {} : null), // Keep tap recognizer for Windows touch.
-                onPanStart: (_) => startDragging(isMainWindow),
-                onPanCancel: () {
-                  // We want to disable dragging of the tab area in the tab bar.
-                  // Disable dragging is needed because macOS handles dragging by default.
-                  if (isMacOS) {
-                    setMovable(isMainWindow, false);
-                  }
-                },
-                onPanEnd: (_) {
-                  if (isMacOS) {
-                    setMovable(isMainWindow, false);
-                  }
-                },
-                child: Row(
-                  children: [
-                    Offstage(
-                        offstage: !isMacOS,
-                        child: const SizedBox(
-                          width: 78,
-                        )),
-                    Offstage(
-                      offstage: kUseCompatibleUiMode || isMacOS,
-                      child: Row(children: [
-                        Offstage(
-                          offstage: !showLogo,
-                          child: loadIcon(16),
+                      : (isIncomingHomePage
+                          ? () {}
+                          : null), // Keep tap recognizer for Windows touch.
+                  onPanStart: (_) => startDragging(isMainWindow),
+                  onPanCancel: () {
+                    // We want to disable dragging of the tab area in the tab bar.
+                    // Disable dragging is needed because macOS handles dragging by default.
+                    if (isMacOS) {
+                      setMovable(isMainWindow, false);
+                    }
+                  },
+                  onPanEnd: (_) {
+                    if (isMacOS) {
+                      setMovable(isMainWindow, false);
+                    }
+                  },
+                  child: Row(
+                    children: [
+                      Offstage(
+                          offstage: !isMacOS,
+                          child: const SizedBox(
+                            width: 78,
+                          )),
+                      Offstage(
+                        offstage: kUseCompatibleUiMode || isMacOS,
+                        child: Row(children: [
+                          Offstage(
+                            offstage: !showLogo,
+                            child: loadIcon(mainShell ? 20 : 16),
+                          ),
+                          Offstage(
+                              offstage: !showTitle && !mainShell,
+                              child: Text(
+                                bind.mainGetAppNameSync(),
+                                style: TextStyle(
+                                  color: mainShell
+                                      ? DesktopHomeTheme.textPrimary(context)
+                                      : null,
+                                  fontSize: mainShell ? 14 : 13,
+                                  fontWeight: mainShell
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                ),
+                              ).marginOnly(left: 2))
+                        ]).marginOnly(
+                          left: mainShell ? 12 : 5,
+                          right: mainShell ? 18 : 10,
                         ),
-                        Offstage(
-                            offstage: !showTitle,
-                            child: const Text(
-                              "RustDesk",
-                              style: TextStyle(fontSize: 13),
-                            ).marginOnly(left: 2))
-                      ]).marginOnly(
-                        left: 5,
-                        right: 10,
                       ),
-                    ),
-                    Expanded(
-                        child: Listener(
-                            // handle mouse wheel
-                            onPointerSignal: (e) {
-                              if (e is PointerScrollEvent) {
-                                final sc =
-                                    controller.state.value.scrollController;
-                                if (!sc.canScroll) return;
-                                _scrollDebounce.call(() {
-                                  double adjust = 2.5;
-                                  sc.animateTo(
-                                      sc.offset + e.scrollDelta.dy * adjust,
-                                      duration: Duration(milliseconds: 200),
-                                      curve: Curves.ease);
-                                });
-                              }
-                            },
-                            child: _ListView(
-                              controller: controller,
-                              invisibleTabKeys: invisibleTabKeys,
-                              tabBuilder: tabBuilder,
-                              tabMenuBuilder: tabMenuBuilder,
-                              labelGetter: labelGetter,
-                              maxLabelWidth: maxLabelWidth,
-                              selectedTabBackgroundColor:
-                                  selectedTabBackgroundColor,
-                              unSelectedTabBackgroundColor:
-                                  unSelectedTabBackgroundColor,
-                              selectedBorderColor: selectedBorderColor,
-                            ))),
-                  ],
-                ))),
-        // hide simulated action buttons when we in compatible ui mode, because of reusing system title bar.
-        WindowActionPanel(
-          isMainWindow: isMainWindow,
-          state: state,
-          tabController: controller,
-          invisibleTabKeys: invisibleTabKeys,
-          tail: tail,
-          showMinimize: showMinimize,
-          showMaximize: showMaximize,
-          showClose: showClose,
-          onClose: onWindowCloseButton,
-          labelGetter: labelGetter,
-        ).paddingOnly(left: 10)
-      ],
+                      Expanded(
+                          child: Listener(
+                              // handle mouse wheel
+                              onPointerSignal: (e) {
+                                if (e is PointerScrollEvent) {
+                                  final sc =
+                                      controller.state.value.scrollController;
+                                  if (!sc.canScroll) return;
+                                  _scrollDebounce.call(() {
+                                    double adjust = 2.5;
+                                    sc.animateTo(
+                                        sc.offset + e.scrollDelta.dy * adjust,
+                                        duration: Duration(milliseconds: 200),
+                                        curve: Curves.ease);
+                                  });
+                                }
+                              },
+                              child: _ListView(
+                                controller: controller,
+                                invisibleTabKeys: invisibleTabKeys,
+                                tabBuilder: tabBuilder,
+                                tabMenuBuilder: tabMenuBuilder,
+                                labelGetter: labelGetter,
+                                maxLabelWidth: maxLabelWidth,
+                                selectedTabBackgroundColor:
+                                    selectedTabBackgroundColor,
+                                unSelectedTabBackgroundColor:
+                                    unSelectedTabBackgroundColor,
+                                selectedBorderColor: selectedBorderColor,
+                              ))),
+                    ],
+                  ))),
+          // hide simulated action buttons when we in compatible ui mode, because of reusing system title bar.
+          WindowActionPanel(
+            isMainWindow: isMainWindow,
+            state: state,
+            tabController: controller,
+            invisibleTabKeys: invisibleTabKeys,
+            tail: tail,
+            showMinimize: showMinimize,
+            showMaximize: showMaximize,
+            showClose: showClose,
+            onClose: onWindowCloseButton,
+            labelGetter: labelGetter,
+            actionBoxSize: mainShell ? tabBarHeight - 1 : null,
+          ).paddingOnly(left: 10)
+        ],
+      ),
     );
   }
 }
@@ -712,6 +731,7 @@ class WindowActionPanel extends StatefulWidget {
 
   final RxList<String> invisibleTabKeys;
   final LabelGetter? labelGetter;
+  final double? actionBoxSize;
 
   const WindowActionPanel(
       {Key? key,
@@ -724,7 +744,8 @@ class WindowActionPanel extends StatefulWidget {
       this.showMaximize = true,
       this.showClose = true,
       this.onClose,
-      this.labelGetter})
+      this.labelGetter,
+      this.actionBoxSize})
       : super(key: key);
 
   @override
@@ -781,6 +802,7 @@ class WindowActionPanelState extends State<WindowActionPanel> {
                     }
                   },
                   isClose: false,
+                  boxSize: widget.actionBoxSize ?? _kTabBarHeight - 1,
                 ),
               if (widget.showMaximize && !isMacOS)
                 Obx(() => ActionIcon(
@@ -794,6 +816,7 @@ class WindowActionPanelState extends State<WindowActionPanel> {
                           ? null
                           : _toggleMaximize,
                       isClose: false,
+                      boxSize: widget.actionBoxSize ?? _kTabBarHeight - 1,
                     )),
               if (widget.showClose && !isMacOS)
                 ActionIcon(
@@ -815,6 +838,7 @@ class WindowActionPanelState extends State<WindowActionPanel> {
                     }
                   },
                   isClose: true,
+                  boxSize: widget.actionBoxSize ?? _kTabBarHeight - 1,
                 )
             ],
           ),
@@ -1009,8 +1033,15 @@ class _ListView extends StatelessWidget {
                     tabMenuBuilder: tabMenuBuilder,
                     maxLabelWidth: maxLabelWidth,
                     selectedTabBackgroundColor: selectedTabBackgroundColor ??
-                        MyTheme.tabbar(context).selectedTabBackgroundColor,
-                    unSelectedTabBackgroundColor: unSelectedTabBackgroundColor,
+                        (controller.tabType == DesktopTabType.main
+                            ? DesktopHomeTheme.brand.withOpacity(0.08)
+                            : MyTheme.tabbar(context)
+                                .selectedTabBackgroundColor),
+                    unSelectedTabBackgroundColor:
+                        unSelectedTabBackgroundColor ??
+                            (controller.tabType == DesktopTabType.main
+                                ? Colors.transparent
+                                : null),
                     selectedBorderColor: selectedBorderColor,
                   ),
                 );
@@ -1072,14 +1103,19 @@ class _TabState extends State<_Tab> with RestorationMixin {
         widget.selectedIcon != null && widget.unselectedIcon != null;
     bool isSelected = widget.index == widget.selected;
 
+    final mainShell = widget.tabType == DesktopTabType.main;
     final icon = Offstage(
         offstage: !showIcon,
         child: Icon(
           isSelected ? widget.selectedIcon : widget.unselectedIcon,
           size: _kIconSize,
-          color: isSelected
-              ? MyTheme.tabbar(context).selectedTabIconColor
-              : MyTheme.tabbar(context).unSelectedTabIconColor,
+          color: mainShell
+              ? (isSelected
+                  ? DesktopHomeTheme.brand
+                  : DesktopHomeTheme.textSecondary(context))
+              : (isSelected
+                  ? MyTheme.tabbar(context).selectedTabIconColor
+                  : MyTheme.tabbar(context).unSelectedTabIconColor),
         ).paddingOnly(right: 5));
     final labelWidget = Obx(() {
       return ConstrainedBox(
@@ -1093,9 +1129,16 @@ class _TabState extends State<_Tab> with RestorationMixin {
                   : widget.label.value,
               textAlign: TextAlign.center,
               style: TextStyle(
-                  color: isSelected
-                      ? MyTheme.tabbar(context).selectedTextColor
-                      : MyTheme.tabbar(context).unSelectedTextColor),
+                color: mainShell
+                    ? (isSelected
+                        ? DesktopHomeTheme.textPrimary(context)
+                        : DesktopHomeTheme.textSecondary(context))
+                    : (isSelected
+                        ? MyTheme.tabbar(context).selectedTextColor
+                        : MyTheme.tabbar(context).unSelectedTextColor),
+                fontSize: mainShell ? 12 : null,
+                fontWeight: mainShell && isSelected ? FontWeight.w600 : null,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ));
@@ -1172,9 +1215,11 @@ class _TabState extends State<_Tab> with RestorationMixin {
                 children: [
                   SizedBox(
                       // _kTabBarHeight also displays normally
-                      height: _showTabBarBottomDivider(widget.tabType)
-                          ? _kTabBarHeight - 1
-                          : _kTabBarHeight,
+                      height: widget.tabType == DesktopTabType.main
+                          ? 34
+                          : (_showTabBarBottomDivider(widget.tabType)
+                              ? _kTabBarHeight - 1
+                              : _kTabBarHeight),
                       child: Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [

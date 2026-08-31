@@ -8,6 +8,7 @@ import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
+import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
 import 'package:flutter_hbb/models/model.dart';
 import 'package:get/get.dart';
@@ -536,7 +537,7 @@ class _TerminalTabPageState extends State<TerminalTabPage> {
   @override
   Widget build(BuildContext context) {
     final child = Scaffold(
-        backgroundColor: Theme.of(context).cardColor,
+        backgroundColor: DesktopHomeTheme.canvas(context),
         body: DesktopTab(
           controller: tabController,
           onWindowCloseButton: handleWindowCloseButton,

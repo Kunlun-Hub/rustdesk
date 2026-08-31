@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../consts.dart';
 import '../../desktop/widgets/tabbar_widget.dart';
+import '../../desktop/theme/desktop_home_theme.dart';
 import '../../models/chat_model.dart';
 import '../../models/model.dart';
 import 'chat_page.dart';
@@ -67,9 +68,20 @@ class DraggableChatWindow extends StatelessWidget {
                 body: ChatPage(chatModel: chatModel),
               );
               return Container(
-                  decoration:
-                      BoxDecoration(border: Border.all(color: MyTheme.border)),
-                  child: child);
+                decoration: BoxDecoration(
+                  border: Border.all(color: DesktopHomeTheme.border(context)),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x22000000),
+                      blurRadius: 16,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: child,
+              );
             });
   }
 
@@ -120,10 +132,10 @@ class DraggableChatWindow extends StatelessWidget {
   Widget _buildDesktopAppBar(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
+          color: DesktopHomeTheme.surface(context),
           border: Border(
-              bottom: BorderSide(
-                  color: Theme.of(context).hintColor.withOpacity(0.4)))),
-      height: 38,
+              bottom: BorderSide(color: DesktopHomeTheme.border(context)))),
+      height: 40,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -133,9 +145,13 @@ class DraggableChatWindow extends StatelessWidget {
                   opacity: chatModel.isWindowFocus.value ? 1.0 : 0.4,
                   child: Row(children: [
                     Icon(Icons.chat_bubble_outline,
-                        size: 20, color: Theme.of(context).colorScheme.primary),
+                        size: 18, color: DesktopHomeTheme.brand),
                     SizedBox(width: 6),
-                    Text(translate("Chat"))
+                    Text(translate("Chat"),
+                        style: TextStyle(
+                            color: DesktopHomeTheme.textPrimary(context),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600))
                   ])))),
           Padding(
               padding: EdgeInsets.all(2),
@@ -568,14 +584,17 @@ class QualityMonitor extends StatelessWidget {
         Expanded(
             flex: 8,
             child: AutoSizeText(info,
-                style: TextStyle(color: Color.fromARGB(255, 210, 210, 210)),
+                style: const TextStyle(color: Color(0xFFAEB7C5), fontSize: 11),
                 textAlign: TextAlign.right,
                 maxLines: 1)),
         Spacer(flex: 1),
         Expanded(
             flex: 8,
             child: AutoSizeText(value ?? '',
-                style: TextStyle(color: rightColor ?? Colors.white),
+                style: TextStyle(
+                    color: rightColor ?? Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600),
                 maxLines: 1)),
       ],
     );
@@ -588,12 +607,29 @@ class QualityMonitor extends StatelessWidget {
           builder: (context, qualityMonitorModel, child) => qualityMonitorModel
                   .show
               ? Container(
-                  constraints: BoxConstraints(maxWidth: 200),
-                  padding: const EdgeInsets.all(8),
-                  color: MyTheme.canvasColor.withAlpha(150),
+                  constraints: const BoxConstraints(maxWidth: 190),
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 9),
+                  decoration: BoxDecoration(
+                    color: const Color(0xE61A1E26),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF343B48)),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.monitor_heart_outlined,
+                              size: 14, color: DesktopHomeTheme.brand),
+                          const SizedBox(width: 6),
+                          Text(translate('Connection Quality'),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                      const SizedBox(height: 7),
                       _row("Speed", qualityMonitorModel.data.speed ?? '-'),
                       _row("FPS", qualityMonitorModel.data.fps ?? '-'),
                       // let delay be 0 if fps is 0

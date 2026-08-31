@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common/formatter/id_formatter.dart';
 import 'package:flutter_hbb/desktop/widgets/refresh_wrapper.dart';
+import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
 import 'package:flutter_hbb/main.dart';
 import 'package:flutter_hbb/models/peer_model.dart';
@@ -906,31 +907,64 @@ class OverlayDialogManager {
       }
 
       return CustomAlertDialog(
-        content: Container(
-            constraints: const BoxConstraints(maxWidth: 240),
-            child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 30),
-                  const Center(child: CircularProgressIndicator()),
-                  const SizedBox(height: 20),
-                  Center(
-                      child: Text(translate(text),
-                          style: const TextStyle(fontSize: 15))),
-                  const SizedBox(height: 20),
-                  Offstage(
-                      offstage: !showCancel,
-                      child: Center(
-                          child: (isDesktop || isWebDesktop)
-                              ? dialogButton('Cancel', onPressed: cancel)
-                              : TextButton(
+        content: (isDesktop || isWebDesktop)
+            ? Container(
+                constraints: const BoxConstraints(maxWidth: 300),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: DesktopHomeTheme.brand.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: DesktopHomeTheme.brand,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        translate(text),
+                        style: TextStyle(
+                          color: DesktopHomeTheme.textPrimary(context),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : Container(
+                constraints: const BoxConstraints(maxWidth: 240),
+                child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 30),
+                      const Center(child: CircularProgressIndicator()),
+                      const SizedBox(height: 20),
+                      Center(
+                          child: Text(translate(text),
+                              style: const TextStyle(fontSize: 15))),
+                      const SizedBox(height: 20),
+                      Offstage(
+                          offstage: !showCancel,
+                          child: Center(
+                              child: TextButton(
                                   style: flatButtonStyle,
                                   onPressed: cancel,
                                   child: Text(translate('Cancel'),
                                       style: const TextStyle(
                                           color: MyTheme.accent)))))
-                ])),
+                    ])),
+        actions: (isDesktop || isWebDesktop) && showCancel
+            ? [dialogButton('Cancel', onPressed: cancel, isOutline: true)]
+            : null,
         onCancel: showCancel ? cancel : null,
       );
     }, tag: tag);
@@ -1342,6 +1376,18 @@ Widget msgboxIcon(String type) {
     iconData = Icons.info;
   }
   if (iconData != null) {
+    if (isDesktop || isWebDesktop) {
+      final color = _msgboxColor(type)!;
+      return Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(iconData, size: 22, color: color),
+      ).marginOnly(right: 14);
+    }
     return Icon(iconData, size: 50, color: _msgboxColor(type))
         .marginOnly(right: 16);
   }
@@ -1380,8 +1426,13 @@ Widget msgboxContent(String type, String title, String text) {
           children: [
             Text(
               translate(title),
-              style: TextStyle(fontSize: 21),
-            ).marginOnly(bottom: 10),
+              style: TextStyle(
+                fontSize: (isDesktop || isWebDesktop) ? 16 : 21,
+                fontWeight: (isDesktop || isWebDesktop)
+                    ? FontWeight.w600
+                    : FontWeight.normal,
+              ),
+            ).marginOnly(bottom: (isDesktop || isWebDesktop) ? 6 : 10),
             createDialogContent(translateText(text)),
           ],
         ),
@@ -3850,7 +3901,7 @@ Size getIncomingOnlyHomeSize() {
   final magicWidth = isWindows ? 11.0 : 2.0;
   final magicHeight = 10.0;
   return imcomingOnlyHomeSize +
-      Offset(magicWidth, kDesktopRemoteTabBarHeight + magicHeight);
+      Offset(magicWidth, kDesktopMainTabBarHeight + magicHeight);
 }
 
 Size getIncomingOnlySettingsSize() {

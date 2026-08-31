@@ -24,6 +24,7 @@ import './popup_menu.dart';
 import './kb_layout_type_chooser.dart';
 import 'package:flutter_hbb/utils/scale.dart';
 import 'package:flutter_hbb/common/widgets/custom_scale_base.dart';
+import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 
 enum _ToolbarEdge { top, right, bottom, left }
 
@@ -324,10 +325,10 @@ class ToolbarState {
 }
 
 class _ToolbarTheme {
-  static const Color blueColor = MyTheme.button;
-  static const Color hoverBlueColor = MyTheme.accent;
-  static Color inactiveColor = Colors.grey[800]!;
-  static Color hoverInactiveColor = Colors.grey[850]!;
+  static const Color blueColor = DesktopHomeTheme.brand;
+  static const Color hoverBlueColor = DesktopHomeTheme.brandHover;
+  static const Color inactiveColor = Color(0xFF7A8596);
+  static const Color hoverInactiveColor = DesktopHomeTheme.brand;
 
   static const Color redColor = Colors.redAccent;
   static const Color hoverRedColor = Colors.red;
@@ -336,24 +337,24 @@ class _ToolbarTheme {
   static const double dividerHeight = 12.0;
 
   static const double buttonSize = 32;
-  static const double buttonHMargin = 2;
-  static const double buttonVMargin = 6;
+  static const double buttonHMargin = 3;
+  static const double buttonVMargin = 5;
   static const double iconRadius = 8;
-  static const double elevation = 3;
+  static const double elevation = 5;
 
   static double dividerSpaceToAction = isWindows ? 8 : 14;
 
-  static double menuBorderRadius = isWindows ? 5.0 : 7.0;
+  static double menuBorderRadius = 10;
   static EdgeInsets menuPadding = isWindows
       ? EdgeInsets.fromLTRB(4, 12, 4, 12)
       : EdgeInsets.fromLTRB(6, 14, 6, 14);
-  static const double menuButtonBorderRadius = 3.0;
+  static const double menuButtonBorderRadius = 8.0;
 
   static Color borderColor(BuildContext context) =>
-      MyTheme.color(context).border3 ?? MyTheme.border;
+      DesktopHomeTheme.border(context);
 
   static Color? dividerColor(BuildContext context) =>
-      MyTheme.color(context).divider;
+      DesktopHomeTheme.border(context);
 
   static MenuStyle defaultMenuStyle(BuildContext context) => MenuStyle(
         side: MaterialStateProperty.all(BorderSide(
@@ -833,6 +834,7 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       }
     }));
 
+    toolbarItems.add(_toolbarGroupDivider(context, isHorizontal));
     toolbarItems
         .add(_ControlMenu(id: widget.id, ffi: widget.ffi, state: widget.state));
     toolbarItems.add(_DisplayMenu(
@@ -845,13 +847,15 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
     if (widget.ffi.connType == ConnType.defaultConn) {
       toolbarItems.add(_KeyboardMenu(id: widget.id, ffi: widget.ffi));
     }
+    toolbarItems.add(_toolbarGroupDivider(context, isHorizontal));
     toolbarItems.add(_ChatMenu(id: widget.id, ffi: widget.ffi));
     if (!isWeb) {
       toolbarItems.add(_VoiceCallMenu(id: widget.id, ffi: widget.ffi));
     }
     if (!isWeb) toolbarItems.add(_RecordMenu());
+    toolbarItems.add(_toolbarGroupDivider(context, isHorizontal));
     toolbarItems.add(_CloseMenu(id: widget.id, ffi: widget.ffi));
-    final toolbarBorderRadius = BorderRadius.all(Radius.circular(4.0));
+    final toolbarBorderRadius = BorderRadius.all(Radius.circular(10));
     // innerAxis: how the toolbar icons themselves flow.
     // outerAxis: how the toolbar block and the handle stack against each other
     // (perpendicular to the dock edge, so the handle hangs off the interior face).
@@ -862,13 +866,9 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
         : SizedBox(height: _ToolbarTheme.buttonHMargin * 2);
     final toolbarMaterial = Material(
       elevation: _ToolbarTheme.elevation,
-      shadowColor: MyTheme.color(context).shadow,
+      shadowColor: Colors.black.withOpacity(0.18),
       borderRadius: toolbarBorderRadius,
-      color: Theme.of(context)
-          .menuBarTheme
-          .style
-          ?.backgroundColor
-          ?.resolve(MaterialState.values.toSet()),
+      color: DesktopHomeTheme.surface(context),
       child: SingleChildScrollView(
         scrollDirection: innerAxis,
         child: Theme(
@@ -902,6 +902,18 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
     );
   }
 
+  Widget _toolbarGroupDivider(BuildContext context, bool isHorizontal) {
+    return Container(
+      width: isHorizontal ? 1 : 18,
+      height: isHorizontal ? 18 : 1,
+      margin: EdgeInsets.symmetric(
+        horizontal: isHorizontal ? 5 : 0,
+        vertical: isHorizontal ? 0 : 5,
+      ),
+      color: DesktopHomeTheme.border(context),
+    );
+  }
+
   ThemeData themeData() {
     return Theme.of(context).copyWith(
       menuButtonTheme: MenuButtonThemeData(
@@ -926,7 +938,7 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
         shape: MaterialStatePropertyAll(BeveledRectangleBorder()),
       ).copyWith(
               backgroundColor:
-                  Theme.of(context).menuBarTheme.style?.backgroundColor)),
+                  MaterialStatePropertyAll(DesktopHomeTheme.surface(context)))),
     );
   }
 }
@@ -3032,7 +3044,8 @@ class _IconMenuButtonState extends State<_IconMenuButton> {
     final icon = widget.icon ??
         SvgPicture.asset(
           widget.assetName!,
-          colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
+          colorFilter: ColorFilter.mode(
+              hover ? widget.hoverColor : widget.color, BlendMode.srcIn),
           width: _ToolbarTheme.buttonSize,
           height: _ToolbarTheme.buttonSize,
         );
@@ -3056,7 +3069,9 @@ class _IconMenuButtonState extends State<_IconMenuButton> {
                     decoration: BoxDecoration(
                       borderRadius:
                           BorderRadius.circular(_ToolbarTheme.iconRadius),
-                      color: hover ? widget.hoverColor : widget.color,
+                      color: hover
+                          ? widget.hoverColor.withOpacity(0.12)
+                          : Colors.transparent,
                     ),
                     child: icon)),
           )),

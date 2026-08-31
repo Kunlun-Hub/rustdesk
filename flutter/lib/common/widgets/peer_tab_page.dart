@@ -12,6 +12,7 @@ import 'package:flutter_hbb/desktop/widgets/popup_menu.dart';
 import 'package:flutter_hbb/desktop/widgets/material_mod_popup_menu.dart'
     as mod_menu;
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
+import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/models/ab_model.dart';
 import 'package:flutter_hbb/models/peer_model.dart';
 
@@ -110,7 +111,7 @@ class _PeerTabPageState extends State<PeerTabPage>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Obx(() => SizedBox(
-              height: 32,
+              height: isDesktop ? 38 : 32,
               child: Container(
                 padding: stateGlobal.isPortrait.isTrue
                     ? EdgeInsets.symmetric(horizontal: 2)
@@ -136,53 +137,77 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   Widget _createSwitchBar(BuildContext context) {
     final model = Provider.of<PeerTabModel>(context);
-    var counter = -1;
-    return ReorderableListView(
-        buildDefaultDragHandles: false,
-        onReorder: model.reorder,
-        scrollDirection: Axis.horizontal,
-        physics: NeverScrollableScrollPhysics(),
-        children: model.visibleEnabledOrderedIndexs.map((t) {
-          final selected = model.currentTab == t;
-          final color = selected
-              ? MyTheme.tabbar(context).selectedTextColor
-              : MyTheme.tabbar(context).unSelectedTextColor
-            ?..withOpacity(0.5);
-          final hover = false.obs;
-          final deco = BoxDecoration(
-              color: Theme.of(context).colorScheme.background,
-              borderRadius: BorderRadius.circular(6));
-          final decoBorder = BoxDecoration(
-              border: Border(
-            bottom: BorderSide(width: 2, color: color!),
-          ));
-          counter += 1;
-          return ReorderableDragStartListener(
-              key: ValueKey(t),
-              index: counter,
-              child: Obx(() => Tooltip(
-                    preferBelow: false,
-                    message: model.tabTooltip(t),
-                    onTriggered: isMobile ? mobileShowTabVisibilityMenu : null,
-                    child: InkWell(
-                      child: Container(
-                        decoration: (hover.value
-                            ? (selected ? decoBorder : deco)
-                            : (selected ? decoBorder : null)),
-                        child: Icon(model.tabIcon(t), color: color)
-                            .paddingSymmetric(horizontal: 4),
-                      ).paddingSymmetric(horizontal: 4),
-                      onTap: isOptionFixed(kOptionPeerTabIndex)
-                          ? null
-                          : () async {
-                              await handleTabSelection(t);
-                              await bind.setLocalFlutterOption(
-                                  k: kOptionPeerTabIndex, v: t.toString());
-                            },
-                      onHover: (value) => hover.value = value,
-                    ),
-                  )));
-        }).toList());
+    return LayoutBuilder(builder: (context, constraints) {
+      final showLabels = isDesktop && constraints.maxWidth >= 430;
+      var counter = -1;
+      return ReorderableListView(
+          buildDefaultDragHandles: false,
+          onReorder: model.reorder,
+          scrollDirection: Axis.horizontal,
+          physics: NeverScrollableScrollPhysics(),
+          children: model.visibleEnabledOrderedIndexs.map((t) {
+            final selected = model.currentTab == t;
+            final color = selected
+                ? DesktopHomeTheme.brand
+                : DesktopHomeTheme.textSecondary(context);
+            final hover = false.obs;
+            final deco = BoxDecoration(
+                color: DesktopHomeTheme.surfaceMuted(context),
+                borderRadius:
+                    BorderRadius.circular(DesktopHomeTheme.controlRadius));
+            final decoSelected = BoxDecoration(
+              color: DesktopHomeTheme.brand.withOpacity(0.10),
+              borderRadius:
+                  BorderRadius.circular(DesktopHomeTheme.controlRadius),
+            );
+            counter += 1;
+            return ReorderableDragStartListener(
+                key: ValueKey(t),
+                index: counter,
+                child: Obx(() => Tooltip(
+                      preferBelow: false,
+                      message: model.tabTooltip(t),
+                      onTriggered:
+                          isMobile ? mobileShowTabVisibilityMenu : null,
+                      child: InkWell(
+                        child: Container(
+                          height: 34,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          decoration: selected
+                              ? decoSelected
+                              : (hover.value ? deco : null),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(model.tabIcon(t), color: color, size: 17),
+                              if (showLabels) ...[
+                                const SizedBox(width: 6),
+                                Text(
+                                  translate(model.tabTooltip(t)),
+                                  style: TextStyle(
+                                    color: color,
+                                    fontSize: 12,
+                                    fontWeight: selected
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ).paddingOnly(right: 3),
+                        onTap: isOptionFixed(kOptionPeerTabIndex)
+                            ? null
+                            : () async {
+                                await handleTabSelection(t);
+                                await bind.setLocalFlutterOption(
+                                    k: kOptionPeerTabIndex, v: t.toString());
+                              },
+                        onHover: (value) => hover.value = value,
+                      ),
+                    )));
+          }).toList());
+    });
   }
 
   Widget _createPeersView() {
@@ -204,8 +229,7 @@ class _PeerTabPageState extends State<PeerTabPage>
       }
     }
     return Expanded(
-        child: child.marginSymmetric(
-            vertical: (isDesktop || isWebDesktop) ? 12.0 : 6.0));
+        child: child.marginOnly(top: (isDesktop || isWebDesktop) ? 10.0 : 6.0));
   }
 
   Widget _createRefresh(
@@ -673,15 +697,22 @@ class _PeerSearchBarState extends State<PeerSearchBar> {
         : _hoverAction(
             context: context,
             toolTip: translate('Search'),
-            padding: const EdgeInsets.only(right: 2),
+            padding: EdgeInsets.zero,
             onTap: () {
               setState(() {
                 drawer = true;
               });
             },
-            child: Icon(
-              Icons.search_rounded,
-              color: Theme.of(context).hintColor,
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: DesktopHomeTheme.surfaceMuted(context),
+                borderRadius:
+                    BorderRadius.circular(DesktopHomeTheme.controlRadius),
+              ),
+              child: Icon(Icons.search_rounded,
+                  size: 18, color: DesktopHomeTheme.textSecondary(context)),
             ));
   }
 
@@ -695,10 +726,12 @@ class _PeerSearchBarState extends State<PeerSearchBar> {
           extentOffset: peerSearchTextController.value.text.length);
     });
     return Obx(() => Container(
-          width: stateGlobal.isPortrait.isTrue ? 120 : 140,
+          width: stateGlobal.isPortrait.isTrue ? 120 : 176,
+          height: 32,
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.background,
-            borderRadius: BorderRadius.circular(6),
+            color: DesktopHomeTheme.surfaceMuted(context),
+            borderRadius: BorderRadius.circular(DesktopHomeTheme.controlRadius),
+            border: Border.all(color: DesktopHomeTheme.border(context)),
           ),
           child: Row(
             children: [
@@ -707,8 +740,9 @@ class _PeerSearchBarState extends State<PeerSearchBar> {
                   children: [
                     Icon(
                       Icons.search_rounded,
-                      color: Theme.of(context).hintColor,
-                    ).marginSymmetric(horizontal: 4),
+                      size: 17,
+                      color: DesktopHomeTheme.textSecondary(context),
+                    ).marginSymmetric(horizontal: 7),
                     Expanded(
                       child: TextField(
                         autofocus: true,
@@ -752,10 +786,9 @@ class _PeerSearchBarState extends State<PeerSearchBar> {
                       },
                       icon: Tooltip(
                           message: translate('Close'),
-                          child: Icon(
-                            Icons.close,
-                            color: Theme.of(context).hintColor,
-                          )),
+                          child: Icon(Icons.close,
+                              size: 16,
+                              color: DesktopHomeTheme.textSecondary(context))),
                     ),
                   ],
                 ),
