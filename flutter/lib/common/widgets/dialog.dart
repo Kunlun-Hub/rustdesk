@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common/shared_state.dart';
 import 'package:flutter_hbb/common/widgets/setting_widgets.dart';
 import 'package:flutter_hbb/consts.dart';
+import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
 import 'package:flutter_hbb/models/peer_model.dart';
 import 'package:flutter_hbb/models/peer_tab_model.dart';
@@ -155,20 +156,43 @@ void changeIdDialog() {
           (isDesktop || isWebDesktop)
               ? Obx(() => Wrap(
                     runSpacing: 8,
-                    spacing: 4,
+                    spacing: 8,
                     children: rules.map((e) {
                       var checked = e.validate(rxId.value);
-                      return Chip(
-                          label: Text(
-                            e.name,
-                            style: TextStyle(
-                                color: checked
-                                    ? const Color(0xFF0A9471)
-                                    : Color.fromARGB(255, 198, 86, 157)),
-                          ),
-                          backgroundColor: checked
-                              ? const Color(0xFFD0F7ED)
-                              : Color.fromARGB(255, 247, 205, 232));
+                      final color = checked
+                          ? DesktopHomeTheme.success
+                          : DesktopHomeTheme.textSecondary(context);
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 120),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.09),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: color.withOpacity(0.22)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              checked
+                                  ? Icons.check_circle_rounded
+                                  : Icons.circle_outlined,
+                              size: 14,
+                              color: color,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              e.name,
+                              style: TextStyle(
+                                color: color,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
                     }).toList(),
                   )).marginOnly(bottom: 8)
               : SizedBox.shrink(),
@@ -879,7 +903,9 @@ class _PasswordWidgetState extends State<PasswordWidget> {
         icon: Icon(
             // Based on passwordVisible state choose the icon
             _passwordVisible ? Icons.visibility : Icons.visibility_off,
-            color: MyTheme.lightTheme.primaryColor),
+            color: (isDesktop || isWebDesktop)
+                ? DesktopHomeTheme.textSecondary(context)
+                : MyTheme.lightTheme.primaryColor),
         onPressed: () {
           // Update the state i.e. toggle the state of passwordVisible variable
           setState(() {
@@ -1420,6 +1446,7 @@ void showRestartRemoteDevice(PeerInfo pi, String id, SessionID sessionId,
                 "OK",
                 icon: Icon(Icons.done_rounded),
                 onPressed: () => close(true),
+                isDanger: true,
               ),
             ],
             onCancel: close,
@@ -1465,7 +1492,6 @@ showSetOSPassword(
 
     return CustomAlertDialog(
       title: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.password_rounded, color: MyTheme.accent),
           Text(translate('OS Password')).paddingOnly(left: 10),
@@ -2164,7 +2190,6 @@ void renameDialog(
 
     return CustomAlertDialog(
       title: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.edit_rounded, color: MyTheme.accent),
           Text(translate('Rename')).paddingOnly(left: 10),
@@ -2605,7 +2630,9 @@ void setSharedAbPasswordDialog(String abName, Peer peer) {
                 suffixIcon: IconButton(
                   icon: Icon(
                       passwordVisible ? Icons.visibility : Icons.visibility_off,
-                      color: MyTheme.lightTheme.primaryColor),
+                      color: (isDesktop || isWebDesktop)
+                          ? DesktopHomeTheme.textSecondary(context)
+                          : MyTheme.lightTheme.primaryColor),
                   onPressed: () {
                     setState(() {
                       passwordVisible = !passwordVisible;
@@ -2637,8 +2664,7 @@ void setSharedAbPasswordDialog(String abName, Peer peer) {
             "Remove",
             icon: Icon(Icons.delete_outline_rounded),
             onPressed: () => change(''),
-            buttonStyle: ButtonStyle(
-                backgroundColor: MaterialStatePropertyAll(Colors.red)),
+            isDanger: true,
           ),
         Obx(() => dialogButton(
               "OK",

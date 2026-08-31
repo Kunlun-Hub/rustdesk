@@ -79,6 +79,8 @@ class DesktopHomeTheme {
             const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         hintStyle: TextStyle(color: secondary, fontSize: 13),
         labelStyle: TextStyle(color: secondary, fontSize: 13),
+        prefixIconColor: secondary,
+        suffixIconColor: secondary,
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(controlRadius),
           borderSide: BorderSide(color: outline),
@@ -140,6 +142,11 @@ class DesktopHomeTheme {
         thumbColor: brand,
         overlayColor: brand.withOpacity(0.10),
         trackHeight: 3,
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: brand,
+        linearTrackColor: outline,
+        circularTrackColor: outline,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
