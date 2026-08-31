@@ -337,6 +337,7 @@ class _ToolbarTheme {
   static const double dividerHeight = 12.0;
 
   static const double buttonSize = 32;
+  static const double iconSize = 18;
   static const double buttonHMargin = 3;
   static const double buttonVMargin = 5;
   static const double iconRadius = 8;
@@ -357,6 +358,11 @@ class _ToolbarTheme {
       DesktopHomeTheme.border(context);
 
   static MenuStyle defaultMenuStyle(BuildContext context) => MenuStyle(
+        backgroundColor:
+            MaterialStatePropertyAll(DesktopHomeTheme.surface(context)),
+        surfaceTintColor: const MaterialStatePropertyAll(Colors.transparent),
+        shadowColor: const MaterialStatePropertyAll(Color(0x22000000)),
+        elevation: const MaterialStatePropertyAll(8),
         side: MaterialStateProperty.all(BorderSide(
           width: 1,
           color: borderColor(context),
@@ -3068,8 +3074,8 @@ class _IconMenuButtonState extends State<_IconMenuButton> {
           widget.assetName!,
           colorFilter: ColorFilter.mode(
               hover ? widget.hoverColor : widget.color, BlendMode.srcIn),
-          width: _ToolbarTheme.buttonSize,
-          height: _ToolbarTheme.buttonSize,
+          width: _ToolbarTheme.iconSize,
+          height: _ToolbarTheme.iconSize,
         );
     var button = SizedBox(
       width: widget.width ?? _ToolbarTheme.buttonSize,
@@ -3095,7 +3101,7 @@ class _IconMenuButtonState extends State<_IconMenuButton> {
                           ? widget.hoverColor.withOpacity(0.12)
                           : Colors.transparent,
                     ),
-                    child: icon)),
+                    child: Center(child: icon))),
           )),
     ).marginSymmetric(
         horizontal: widget.hMargin ?? _ToolbarTheme.buttonHMargin,
@@ -3150,12 +3156,13 @@ class _IconSubmenuButtonState extends State<_IconSubmenuButton> {
     final color = hover ? widget.hoverColor : widget.color;
     final icon = widget.icon != null
         ? IconTheme.merge(
-            data: IconThemeData(color: color), child: widget.icon!)
+            data: IconThemeData(color: color, size: _ToolbarTheme.iconSize),
+            child: widget.icon!)
         : SvgPicture.asset(
             widget.svg!,
             colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-            width: _ToolbarTheme.buttonSize,
-            height: _ToolbarTheme.buttonSize,
+            width: _ToolbarTheme.iconSize,
+            height: _ToolbarTheme.iconSize,
           );
     final button = SizedBox(
         width: widget.width ?? _ToolbarTheme.buttonSize,
@@ -3179,7 +3186,7 @@ class _IconSubmenuButtonState extends State<_IconSubmenuButton> {
                               ? widget.hoverColor.withOpacity(0.12)
                               : Colors.transparent,
                         ),
-                        child: icon))),
+                        child: Center(child: icon)))),
             menuChildren: widget
                 .menuChildrenGetter(this)
                 .map((e) => _buildPointerTrackWidget(e, widget.ffi))

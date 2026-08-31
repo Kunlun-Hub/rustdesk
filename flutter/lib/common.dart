@@ -3750,7 +3750,9 @@ class ComboBox extends StatelessWidget {
               ? (isDesktop
                   ? DesktopHomeTheme.border(context)
                   : MyTheme.color(context).border2 ?? MyTheme.border)
-              : MyTheme.border,
+              : (isDesktop
+                  ? DesktopHomeTheme.border(context).withOpacity(0.55)
+                  : MyTheme.border),
         ),
         borderRadius: BorderRadius.circular(
             isDesktop ? DesktopHomeTheme.controlRadius : 8),
@@ -3764,7 +3766,9 @@ class ComboBox extends StatelessWidget {
             underline: Container(),
             style: TextStyle(
                 color: enabled
-                    ? Theme.of(context).textTheme.titleMedium?.color
+                    ? (isDesktop
+                        ? DesktopHomeTheme.textPrimary(context)
+                        : Theme.of(context).textTheme.titleMedium?.color)
                     : disabledTextColor(context, enabled)),
             icon: const Icon(
               Icons.expand_more_sharp,
@@ -3784,9 +3788,12 @@ class ComboBox extends StatelessWidget {
                 value: value,
                 child: Text(
                   value,
-                  style: const TextStyle(fontSize: 15),
+                  style: TextStyle(
+                    fontSize: isDesktop ? 13 : 15,
+                    fontWeight: isDesktop ? FontWeight.w500 : FontWeight.normal,
+                  ),
                   overflow: TextOverflow.ellipsis,
-                ).marginOnly(left: 15),
+                ).marginOnly(left: isDesktop ? 12 : 15),
               );
             }).toList(),
           )),
