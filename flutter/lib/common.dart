@@ -2205,7 +2205,9 @@ Future<bool> restoreWindowPosition(WindowType type,
     }
   }
 
-  final size = await _adjustRestoreMainWindowSize(lpos.width, lpos.height);
+  final size = type == WindowType.Main && !bind.isIncomingOnly()
+      ? kDesktopMainWindowSize
+      : await _adjustRestoreMainWindowSize(lpos.width, lpos.height);
   final offsetLeftTop = await _adjustRestoreMainWindowOffset(
     lpos.offsetWidth,
     lpos.offsetHeight,

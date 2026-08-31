@@ -267,4 +267,25 @@ class PeerTabModel with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void reorderSubset(List<int> subset, int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) newIndex -= 1;
+    if (oldIndex < 0 || oldIndex >= subset.length) return;
+    if (newIndex < 0 || newIndex >= subset.length) return;
+
+    final reordered = subset.toList();
+    final moved = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, moved);
+
+    final positions = <int>[];
+    for (var i = 0; i < orders.length; i++) {
+      if (subset.contains(orders[i])) positions.add(i);
+    }
+    if (positions.length != reordered.length) return;
+    for (var i = 0; i < positions.length; i++) {
+      orders[positions[i]] = reordered[i];
+    }
+    bind.setLocalFlutterOption(k: kOptionPeerTabOrder, v: jsonEncode(orders));
+    notifyListeners();
+  }
 }

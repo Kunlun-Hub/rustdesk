@@ -151,7 +151,9 @@ void runMainApp(bool startService) async {
 
   // Set window option.
   WindowOptions windowOptions = getHiddenTitleBarWindowOptions(
-      isMainWindow: true, alwaysOnTop: alwaysOnTop);
+      isMainWindow: true,
+      size: bind.isIncomingOnly() ? null : kDesktopMainWindowSize,
+      alwaysOnTop: alwaysOnTop);
   windowManager.waitUntilReadyToShow(windowOptions, () async {
     // Restore the location of the main window before window hide or show.
     await restoreWindowPosition(WindowType.Main);
@@ -171,6 +173,11 @@ void runMainApp(bool startService) async {
     // The main dashboard is fixed-size. Session windows keep their own
     // independent maximize and resize behavior.
     await windowManager.setMaximizable(false);
+    if (!bind.isIncomingOnly()) {
+      await windowManager.setMinimumSize(kDesktopMainWindowSize);
+      await windowManager.setMaximumSize(kDesktopMainWindowSize);
+      await windowManager.setSize(kDesktopMainWindowSize);
+    }
     setResizable(false);
   });
 }

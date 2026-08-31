@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
+import 'package:flutter_hbb/common/widgets/peer_tab_page.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
+import 'package:flutter_hbb/models/peer_tab_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:get/get.dart';
 import 'package:window_manager/window_manager.dart';
@@ -183,14 +185,58 @@ class _DesktopPrimaryNavigation extends StatelessWidget {
           ),
           Obx(() {
             final selectedKey = controller.state.value.selectedTabInfo.key;
-            return _PrimaryNavigationItem(
-              label: translate('Remote Control'),
-              icon: Icons.desktop_windows_outlined,
-              compact: compact,
-              selected: selectedKey == kTabLabelHomePage,
-              onTap: () => controller.jumpToByKey(kTabLabelHomePage),
+            return AnimatedBuilder(
+              animation: gFFI.peerTabModel,
+              builder: (context, _) => _PrimaryNavigationItem(
+                label: translate('Remote Control'),
+                icon: Icons.desktop_windows_outlined,
+                compact: compact,
+                selected: selectedKey == kTabLabelHomePage &&
+                    gFFI.peerTabModel.currentTab != PeerTabIndex.ab.index &&
+                    gFFI.peerTabModel.currentTab != PeerTabIndex.group.index,
+                onTap: () {
+                  controller.jumpToByKey(kTabLabelHomePage);
+                  selectPeerTab(PeerTabIndex.recent.index);
+                },
+              ),
             );
           }),
+          if (gFFI.peerTabModel.isEnabled[PeerTabIndex.ab.index])
+            Obx(() {
+              final selectedKey = controller.state.value.selectedTabInfo.key;
+              return AnimatedBuilder(
+                animation: gFFI.peerTabModel,
+                builder: (context, _) => _PrimaryNavigationItem(
+                  label: translate('Address book'),
+                  icon: IconFont.addressBook,
+                  compact: compact,
+                  selected: selectedKey == kTabLabelHomePage &&
+                      gFFI.peerTabModel.currentTab == PeerTabIndex.ab.index,
+                  onTap: () {
+                    controller.jumpToByKey(kTabLabelHomePage);
+                    selectPeerTab(PeerTabIndex.ab.index);
+                  },
+                ),
+              );
+            }),
+          if (gFFI.peerTabModel.isEnabled[PeerTabIndex.group.index])
+            Obx(() {
+              final selectedKey = controller.state.value.selectedTabInfo.key;
+              return AnimatedBuilder(
+                animation: gFFI.peerTabModel,
+                builder: (context, _) => _PrimaryNavigationItem(
+                  label: translate('Accessible devices'),
+                  icon: IconFont.deviceGroupFill,
+                  compact: compact,
+                  selected: selectedKey == kTabLabelHomePage &&
+                      gFFI.peerTabModel.currentTab == PeerTabIndex.group.index,
+                  onTap: () {
+                    controller.jumpToByKey(kTabLabelHomePage);
+                    selectPeerTab(PeerTabIndex.group.index);
+                  },
+                ),
+              );
+            }),
           const Spacer(),
           if (!bind.isDisableSettings())
             Obx(() {

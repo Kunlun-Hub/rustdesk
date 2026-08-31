@@ -42,6 +42,25 @@ EdgeInsets? _menuPadding() {
   return (isDesktop || isWebDesktop) ? kDesktopMenuPadding : null;
 }
 
+Future<void> selectPeerTab(int tabIndex) async {
+  if (tabIndex < 0 || tabIndex >= PeerTabModel.maxTabCount) return;
+  final model = gFFI.peerTabModel;
+  if (!model.isVisibleEnabled[tabIndex]) {
+    model.setTabVisible(tabIndex, true);
+  }
+  if (tabIndex != model.currentTab) {
+    model.setCurrentTabCachedPeers([]);
+  }
+  model.setCurrentTab(tabIndex);
+  await bind.setLocalFlutterOption(
+      k: kOptionPeerTabIndex, v: tabIndex.toString());
+  if (tabIndex == PeerTabIndex.ab.index) {
+    await gFFI.abModel.pullAb(force: null, quiet: false);
+  } else if (tabIndex == PeerTabIndex.group.index) {
+    await gFFI.groupModel.pull(force: false);
+  }
+}
+
 class _PeerTabPageState extends State<PeerTabPage>
     with SingleTickerProviderStateMixin {
   final List<_TabEntry> entries = [
@@ -91,11 +110,7 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   Future<void> handleTabSelection(int tabIndex) async {
     if (tabIndex < entries.length) {
-      if (tabIndex != gFFI.peerTabModel.currentTab) {
-        gFFI.peerTabModel.setCurrentTabCachedPeers([]);
-      }
-      gFFI.peerTabModel.setCurrentTab(tabIndex);
-      entries[tabIndex].load?.call(hint: false);
+      await selectPeerTab(tabIndex);
     }
   }
 
@@ -140,14 +155,24 @@ class _PeerTabPageState extends State<PeerTabPage>
     return LayoutBuilder(builder: (context, constraints) {
       final showLabels = isDesktop && constraints.maxWidth >= 430;
       var counter = -1;
+      final desktopPrimaryNavigation = isDesktop || isWebDesktop;
+      final toolbarTabs = desktopPrimaryNavigation
+          ? model.visibleEnabledOrderedIndexs
+              .where((t) =>
+                  t != PeerTabIndex.ab.index && t != PeerTabIndex.group.index)
+              .toList()
+          : model.visibleEnabledOrderedIndexs;
       return ScrollConfiguration(
         behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
         child: ReorderableListView(
           buildDefaultDragHandles: false,
-          onReorder: model.reorder,
+          onReorder: desktopPrimaryNavigation
+              ? (oldIndex, newIndex) =>
+                  model.reorderSubset(toolbarTabs, oldIndex, newIndex)
+              : model.reorder,
           scrollDirection: Axis.horizontal,
           physics: const ClampingScrollPhysics(),
-          children: model.visibleEnabledOrderedIndexs.map((t) {
+          children: toolbarTabs.map((t) {
             final selected = model.currentTab == t;
             final color = selected
                 ? DesktopHomeTheme.brand
