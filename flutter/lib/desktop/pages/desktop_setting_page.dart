@@ -1372,7 +1372,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
               'Port',
               Row(children: [
                 SizedBox(
-                  width: 95,
+                  width: 110,
                   child: TextField(
                     controller: controller,
                     enabled: enabled && !locked && !isOptFixed,
@@ -1381,11 +1381,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
                       FilteringTextInputFormatter.allow(RegExp(
                           r'^([0-9]|[1-9]\d|[1-9]\d{2}|[1-9]\d{3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$')),
                     ],
-                    decoration: const InputDecoration(
-                      hintText: '21118',
-                      contentPadding:
-                          EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                    ),
+                    decoration: const InputDecoration(hintText: '21118'),
                   ).workaroundFreezeLinuxMint().marginOnly(right: 15),
                 ),
                 Obx(() => ElevatedButton(
@@ -1575,7 +1571,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
             'Timeout in minutes',
             Row(children: [
               SizedBox(
-                width: 95,
+                width: 110,
                 child: TextField(
                   controller: controller,
                   enabled: enabled && !locked && !isOptFixed,
@@ -1584,11 +1580,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
                     FilteringTextInputFormatter.allow(RegExp(
                         r'^([0-9]|[1-9]\d|[1-9]\d{2}|[1-9]\d{3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$')),
                   ],
-                  decoration: const InputDecoration(
-                    hintText: '10',
-                    contentPadding:
-                        EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                  ),
+                  decoration: const InputDecoration(hintText: '10'),
                 ).workaroundFreezeLinuxMint().marginOnly(right: 15),
               ),
               Obx(() => ElevatedButton(
@@ -2922,10 +2914,7 @@ class _WaylandCardState extends State<WaylandCard> {
       'Clear Wayland screen selection',
       showConfirmMsgBox,
       tip: 'clear_Wayland_screen_selection_tip',
-      style: ButtonStyle(
-        backgroundColor: MaterialStateProperty.all<Color>(
-            Theme.of(context).colorScheme.error.withOpacity(0.75)),
-      ),
+      style: _dangerButtonStyle(context),
     );
   }
 
@@ -2965,10 +2954,7 @@ class _WaylandCardState extends State<WaylandCard> {
         'Reset keyboard shortcuts permission',
         showConfirmMsgBox,
         tip: 'clear-shortcuts-inhibitor-permission-tip',
-        style: ButtonStyle(
-          backgroundColor: MaterialStateProperty.all<Color>(
-              Theme.of(context).colorScheme.error.withOpacity(0.75)),
-        ),
+        style: _dangerButtonStyle(context),
       ),
     ]);
   }
@@ -3012,18 +2998,44 @@ Widget _SubButton(String label, Function() onPressed, [bool enabled = true]) {
 // ignore: non_constant_identifier_names
 Widget _SubLabeledWidget(BuildContext context, String label, Widget child,
     {bool enabled = true}) {
-  return Row(
-    children: [
-      Text(
-        '${translate(label)}: ',
-        style: TextStyle(color: disabledTextColor(context, enabled)),
-      ),
-      SizedBox(
-        width: 10,
-      ),
-      child,
-    ],
+  return Container(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      children: [
+        SizedBox(
+          width: 150,
+          child: Text(
+            translate(label),
+            style: TextStyle(
+              color: enabled
+                  ? DesktopHomeTheme.textSecondary(context)
+                  : DesktopHomeTheme.textSecondary(context).withOpacity(0.45),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        child,
+      ],
+    ),
   ).marginOnly(left: _kContentHSubMargin);
+}
+
+ButtonStyle _dangerButtonStyle(BuildContext context) {
+  final error = Theme.of(context).colorScheme.error;
+  return OutlinedButton.styleFrom(
+    foregroundColor: error,
+    backgroundColor: error.withOpacity(0.06),
+    side: BorderSide(color: error.withOpacity(0.45)),
+    elevation: 0,
+    minimumSize: const Size(0, 36),
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(DesktopHomeTheme.controlRadius),
+    ),
+  );
 }
 
 Widget _lock(
@@ -3032,42 +3044,59 @@ Widget _lock(
   Function() onUnlock,
 ) {
   return Offstage(
-      offstage: !locked,
-      child: Row(
-        children: [
-          Flexible(
-            child: SizedBox(
-              width: _kCardFixedWidth,
-              child: Card(
-                child: ElevatedButton(
-                  child: SizedBox(
-                      height: 25,
-                      child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.security_sharp,
-                              size: 20,
-                            ),
-                            Text(translate(label)).marginOnly(left: 5),
-                          ]).marginSymmetric(vertical: 2)),
-                  onPressed: () async {
-                    final unlockPin = bind.mainGetUnlockPin();
-                    if (unlockPin.isEmpty || isUnlockPinDisabled()) {
-                      bool checked = await callMainCheckSuperUserPermission();
-                      if (checked) {
-                        onUnlock();
-                      }
-                    } else {
-                      checkUnlockPinDialog(unlockPin, onUnlock);
-                    }
-                  },
-                ).marginSymmetric(horizontal: 2, vertical: 4),
-              ).marginOnly(left: _kCardLeftMargin),
-            ).marginOnly(top: 10),
-          ),
-        ],
-      ));
+    offstage: !locked,
+    child: Builder(builder: (context) {
+      return Container(
+        width: _kCardFixedWidth,
+        margin: const EdgeInsets.only(left: _kCardLeftMargin, top: 14),
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+        decoration: BoxDecoration(
+          color: DesktopHomeTheme.warning.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(DesktopHomeTheme.radius),
+          border: Border.all(color: DesktopHomeTheme.warning.withOpacity(0.28)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: DesktopHomeTheme.warning.withOpacity(0.14),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: const Icon(Icons.lock_outline_rounded,
+                  size: 18, color: DesktopHomeTheme.warning),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Text(
+                translate(label),
+                style: TextStyle(
+                  color: DesktopHomeTheme.textPrimary(context),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.lock_open_rounded, size: 16),
+              label: Text(translate('Unlock')),
+              onPressed: () async {
+                final unlockPin = bind.mainGetUnlockPin();
+                if (unlockPin.isEmpty || isUnlockPinDisabled()) {
+                  final checked = await callMainCheckSuperUserPermission();
+                  if (checked) onUnlock();
+                } else {
+                  checkUnlockPinDialog(unlockPin, onUnlock);
+                }
+              },
+            ),
+          ],
+        ),
+      );
+    }),
+  );
 }
 
 _LabeledTextField(
