@@ -3742,19 +3742,25 @@ class ComboBox extends StatelessWidget {
     current = keys[index];
     return Container(
       decoration: BoxDecoration(
+        color: isDesktop
+            ? DesktopHomeTheme.surfaceMuted(context)
+            : Colors.transparent,
         border: Border.all(
           color: enabled
-              ? MyTheme.color(context).border2 ?? MyTheme.border
+              ? (isDesktop
+                  ? DesktopHomeTheme.border(context)
+                  : MyTheme.color(context).border2 ?? MyTheme.border)
               : MyTheme.border,
         ),
-        borderRadius:
-            BorderRadius.circular(8), //border raiuds of dropdown button
+        borderRadius: BorderRadius.circular(
+            isDesktop ? DesktopHomeTheme.controlRadius : 8),
       ),
-      height: 42, // should be the height of a TextField
+      height: isDesktop ? 36 : 42,
       child: Obx(() => DropdownButton<String>(
             isExpanded: true,
             value: ref.value,
-            elevation: 16,
+            elevation: 8,
+            dropdownColor: isDesktop ? DesktopHomeTheme.surface(context) : null,
             underline: Container(),
             style: TextStyle(
                 color: enabled
@@ -3762,7 +3768,7 @@ class ComboBox extends StatelessWidget {
                     : disabledTextColor(context, enabled)),
             icon: const Icon(
               Icons.expand_more_sharp,
-              size: 20,
+              size: 18,
             ).marginOnly(right: 15),
             onChanged: enabled
                 ? (String? newValue) {

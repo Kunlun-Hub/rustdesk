@@ -918,9 +918,15 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
     return Theme.of(context).copyWith(
       menuButtonTheme: MenuButtonThemeData(
         style: ButtonStyle(
-          minimumSize: MaterialStatePropertyAll(Size(64, 32)),
-          textStyle: MaterialStatePropertyAll(
-            TextStyle(fontWeight: FontWeight.normal),
+          minimumSize: const MaterialStatePropertyAll(Size(150, 34)),
+          padding: const MaterialStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+          foregroundColor:
+              MaterialStatePropertyAll(DesktopHomeTheme.textPrimary(context)),
+          overlayColor: MaterialStatePropertyAll(
+              DesktopHomeTheme.brand.withOpacity(0.08)),
+          textStyle: const MaterialStatePropertyAll(
+            TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
           ),
           shape: MaterialStatePropertyAll(RoundedRectangleBorder(
               borderRadius:
@@ -933,12 +939,31 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       ),
       menuBarTheme: MenuBarThemeData(
           style: MenuStyle(
-        padding: MaterialStatePropertyAll(EdgeInsets.zero),
-        elevation: MaterialStatePropertyAll(0),
-        shape: MaterialStatePropertyAll(BeveledRectangleBorder()),
+        padding: const MaterialStatePropertyAll(EdgeInsets.zero),
+        elevation: const MaterialStatePropertyAll(0),
+        shape: MaterialStatePropertyAll(RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(_ToolbarTheme.iconRadius))),
       ).copyWith(
               backgroundColor:
                   MaterialStatePropertyAll(DesktopHomeTheme.surface(context)))),
+      checkboxTheme: CheckboxThemeData(
+        visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        fillColor: MaterialStateProperty.resolveWith((states) =>
+            states.contains(MaterialState.selected)
+                ? DesktopHomeTheme.brand
+                : Colors.transparent),
+        side: BorderSide(color: DesktopHomeTheme.textSecondary(context)),
+      ),
+      radioTheme: RadioThemeData(
+        visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        fillColor: MaterialStateProperty.resolveWith((states) =>
+            states.contains(MaterialState.selected)
+                ? DesktopHomeTheme.brand
+                : DesktopHomeTheme.textSecondary(context)),
+      ),
     );
   }
 }
@@ -1180,7 +1205,6 @@ class _MonitorMenu extends StatelessWidget {
                     : '#{${i + 1}} monitor',
             hMargin: isMulti ? null : 6,
             vMargin: isMulti ? null : 12,
-            topLevel: false,
             color: i == display.value
                 ? _ToolbarTheme.blueColor
                 : _ToolbarTheme.inactiveColor,
@@ -3015,7 +3039,6 @@ class _IconMenuButton extends StatefulWidget {
   final VoidCallback? onPressed;
   final double? hMargin;
   final double? vMargin;
-  final bool topLevel;
   final double? width;
   const _IconMenuButton({
     Key? key,
@@ -3027,7 +3050,6 @@ class _IconMenuButton extends StatefulWidget {
     required this.onPressed,
     this.hMargin,
     this.vMargin,
-    this.topLevel = true,
     this.width,
   }) : super(key: key);
 
@@ -3082,11 +3104,7 @@ class _IconMenuButtonState extends State<_IconMenuButton> {
       message: translate(widget.tooltip),
       child: button,
     );
-    if (widget.topLevel) {
-      return MenuBar(children: [button]);
-    } else {
-      return button;
-    }
+    return button;
   }
 }
 
@@ -3129,13 +3147,16 @@ class _IconSubmenuButtonState extends State<_IconSubmenuButton> {
   @override
   Widget build(BuildContext context) {
     assert(widget.svg != null || widget.icon != null);
-    final icon = widget.icon ??
-        SvgPicture.asset(
-          widget.svg!,
-          colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
-          width: _ToolbarTheme.buttonSize,
-          height: _ToolbarTheme.buttonSize,
-        );
+    final color = hover ? widget.hoverColor : widget.color;
+    final icon = widget.icon != null
+        ? IconTheme.merge(
+            data: IconThemeData(color: color), child: widget.icon!)
+        : SvgPicture.asset(
+            widget.svg!,
+            colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+            width: _ToolbarTheme.buttonSize,
+            height: _ToolbarTheme.buttonSize,
+          );
     final button = SizedBox(
         width: widget.width ?? _ToolbarTheme.buttonSize,
         height: _ToolbarTheme.buttonSize,
@@ -3154,18 +3175,29 @@ class _IconSubmenuButtonState extends State<_IconSubmenuButton> {
                         decoration: BoxDecoration(
                           borderRadius:
                               BorderRadius.circular(_ToolbarTheme.iconRadius),
-                          color: hover ? widget.hoverColor : widget.color,
+                          color: hover
+                              ? widget.hoverColor.withOpacity(0.12)
+                              : Colors.transparent,
                         ),
                         child: icon))),
             menuChildren: widget
                 .menuChildrenGetter(this)
                 .map((e) => _buildPointerTrackWidget(e, widget.ffi))
                 .toList()));
-    return MenuBar(children: [
-      button.marginSymmetric(
-          horizontal: _ToolbarTheme.buttonHMargin,
-          vertical: _ToolbarTheme.buttonVMargin)
-    ]);
+    return MenuBar(
+      style: MenuStyle(
+        backgroundColor: const MaterialStatePropertyAll(Colors.transparent),
+        padding: const MaterialStatePropertyAll(EdgeInsets.zero),
+        elevation: const MaterialStatePropertyAll(0),
+        shape: MaterialStatePropertyAll(RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(_ToolbarTheme.iconRadius))),
+      ),
+      children: [
+        button.marginSymmetric(
+            horizontal: _ToolbarTheme.buttonHMargin,
+            vertical: _ToolbarTheme.buttonVMargin)
+      ],
+    );
   }
 }
 
@@ -3515,10 +3547,19 @@ class _DraggableShowHideState extends State<_DraggableShowHide> {
         // floats away from the top while dragging and the toolbar looks
         // unmoored. When multi-edge is on we need 2D drag for snap-to-edge.
         axis: widget.multiEdgeEnabled ? null : Axis.horizontal,
-        child: Icon(
-          widget.isHorizontal ? Icons.drag_indicator : Icons.drag_handle,
-          size: 20,
-          color: MyTheme.color(context).drag_indicator,
+        child: Container(
+          width: widget.isHorizontal ? 20 : 28,
+          height: widget.isHorizontal ? 28 : 20,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: DesktopHomeTheme.surfaceMuted(context),
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Icon(
+            widget.isHorizontal ? Icons.drag_indicator : Icons.drag_handle,
+            size: 16,
+            color: DesktopHomeTheme.textSecondary(context),
+          ),
         ),
         feedback: widget,
         onDragStarted: () {
@@ -3546,6 +3587,10 @@ class _DraggableShowHideState extends State<_DraggableShowHide> {
     final ButtonStyle buttonStyle = ButtonStyle(
       minimumSize: MaterialStateProperty.all(const Size(0, 0)),
       padding: MaterialStateProperty.all(EdgeInsets.zero),
+      foregroundColor:
+          MaterialStatePropertyAll(DesktopHomeTheme.textSecondary(context)),
+      shape: MaterialStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(7))),
     );
     final isFullscreen = stateGlobal.fullscreen;
     const double iconSize = 20;
@@ -3643,11 +3688,7 @@ class _DraggableShowHideState extends State<_DraggableShowHide> {
       data: TextButtonThemeData(style: buttonStyle),
       child: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context)
-              .menuBarTheme
-              .style
-              ?.backgroundColor
-              ?.resolve(MaterialState.values.toSet()),
+          color: DesktopHomeTheme.surface(context),
           border: Border.all(
             color: _ToolbarTheme.borderColor(context),
             width: 1,
@@ -3655,8 +3696,8 @@ class _DraggableShowHideState extends State<_DraggableShowHide> {
           borderRadius: widget.borderRadius,
         ),
         child: SizedBox(
-          height: widget.isHorizontal ? 20 : null,
-          width: widget.isHorizontal ? null : 20,
+          height: widget.isHorizontal ? 28 : null,
+          width: widget.isHorizontal ? null : 28,
           child: child,
         ),
       ),

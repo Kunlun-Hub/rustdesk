@@ -273,35 +273,38 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Scaffold(
-      backgroundColor: DesktopHomeTheme.canvas(context),
-      body: _buildBlock(
-        children: <Widget>[
-          SizedBox(
-            width: _kTabWidth,
-            child: ColoredBox(
-              color: DesktopHomeTheme.navigation(context),
-              child: Column(
-                children: [
-                  _header(context),
-                  Flexible(child: _listView(tabs: _settingTabs())),
-                ],
+    return Theme(
+      data: DesktopHomeTheme.settingsTheme(context),
+      child: Scaffold(
+        backgroundColor: DesktopHomeTheme.canvas(context),
+        body: _buildBlock(
+          children: <Widget>[
+            SizedBox(
+              width: _kTabWidth,
+              child: ColoredBox(
+                color: DesktopHomeTheme.navigation(context),
+                child: Column(
+                  children: [
+                    _header(context),
+                    Flexible(child: _listView(tabs: _settingTabs())),
+                  ],
+                ),
               ),
             ),
-          ),
-          VerticalDivider(width: 1, color: DesktopHomeTheme.border(context)),
-          Expanded(
-            child: Container(
-              color: DesktopHomeTheme.canvas(context),
-              padding: const EdgeInsets.only(left: 12, right: 18),
-              child: PageView(
-                controller: controller,
-                physics: NeverScrollableScrollPhysics(),
-                children: _children(),
+            VerticalDivider(width: 1, color: DesktopHomeTheme.border(context)),
+            Expanded(
+              child: Container(
+                color: DesktopHomeTheme.canvas(context),
+                padding: const EdgeInsets.only(left: 12, right: 18),
+                child: PageView(
+                  controller: controller,
+                  physics: NeverScrollableScrollPhysics(),
+                  children: _children(),
+                ),
               ),
-            ),
-          )
-        ],
+            )
+          ],
+        ),
       ),
     );
   }
