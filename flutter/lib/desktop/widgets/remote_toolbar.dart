@@ -809,6 +809,12 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
   Widget _buildToolbar(
       BuildContext context, _ToolbarEdge edge, bool isHorizontal) {
     final List<Widget> toolbarItems = [];
+    toolbarItems.add(_SessionIdentityChip(
+      id: widget.id,
+      ffi: widget.ffi,
+      horizontal: isHorizontal,
+    ));
+    toolbarItems.add(_toolbarGroupDivider(context, isHorizontal));
     toolbarItems.add(_PinMenu(state: widget.state));
     toolbarItems.add(Obx(() {
       final privacyModeState = PrivacyModeState.find(widget.id);
@@ -971,6 +977,114 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
                 : DesktopHomeTheme.textSecondary(context)),
       ),
     );
+  }
+}
+
+class _SessionIdentityChip extends StatelessWidget {
+  const _SessionIdentityChip({
+    required this.id,
+    required this.ffi,
+    required this.horizontal,
+  });
+
+  final String id;
+  final FFI ffi;
+  final bool horizontal;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      bool? secure;
+      bool? direct;
+      String connectionLabel = translate('Connecting...');
+      try {
+        final connection = ConnectionTypeState.find(id);
+        if (connection.isValid()) {
+          secure = connection.secure.value == ConnectionType.strSecure;
+          direct = connection.direct.value == ConnectionType.strDirect;
+          connectionLabel =
+              getConnectionText(secure, direct, connection.stream_type.value);
+        }
+      } catch (_) {}
+
+      final statusColor = secure == null
+          ? DesktopHomeTheme.textSecondary(context)
+          : secure
+              ? DesktopHomeTheme.success
+              : DesktopHomeTheme.warning;
+      final sessionIcon = ffi.connType == ConnType.viewCamera
+          ? Icons.videocam_outlined
+          : Icons.desktop_windows_outlined;
+
+      final indicator = Container(
+        width: 28,
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: statusColor.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Icon(sessionIcon, size: 16, color: statusColor),
+            Positioned(
+              right: -3,
+              bottom: -3,
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: DesktopHomeTheme.surface(context),
+                    width: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      return Tooltip(
+        message: '$id\n$connectionLabel',
+        child: horizontal
+            ? Container(
+                height: 32,
+                constraints: const BoxConstraints(maxWidth: 160),
+                padding: const EdgeInsets.fromLTRB(2, 2, 10, 2),
+                decoration: BoxDecoration(
+                  color: DesktopHomeTheme.surfaceMuted(context),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    indicator,
+                    const SizedBox(width: 7),
+                    Flexible(
+                      child: Text(
+                        id,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: DesktopHomeTheme.textPrimary(context),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : indicator,
+      ).marginSymmetric(
+        horizontal: horizontal ? 4 : 2,
+        vertical: horizontal ? 3 : 4,
+      );
+    });
   }
 }
 
