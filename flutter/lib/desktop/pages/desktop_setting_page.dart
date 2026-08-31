@@ -489,7 +489,9 @@ class _GeneralState extends State<_General> {
               serviceBtnEnabled.value = true;
             });
           }();
-        }, enabled: serviceBtnEnabled.value)
+        },
+            enabled: serviceBtnEnabled.value,
+            style: _serviceButtonStyle(context, serviceStop.value))
       ]);
     });
   }
@@ -3053,6 +3055,24 @@ ButtonStyle _dangerButtonStyle(BuildContext context) {
     backgroundColor: error.withOpacity(0.06),
     side: BorderSide(color: error.withOpacity(0.45)),
     elevation: 0,
+    minimumSize: const Size(0, 36),
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(DesktopHomeTheme.controlRadius),
+    ),
+  );
+}
+
+ButtonStyle _serviceButtonStyle(BuildContext context, bool isStopped) {
+  final color = isStopped ? DesktopHomeTheme.success : DesktopHomeTheme.danger;
+  return ElevatedButton.styleFrom(
+    foregroundColor: color,
+    backgroundColor: color.withOpacity(0.08),
+    disabledForegroundColor: color.withOpacity(0.35),
+    disabledBackgroundColor: color.withOpacity(0.04),
+    elevation: 0,
+    side: BorderSide(color: color.withOpacity(0.38)),
     minimumSize: const Size(0, 36),
     padding: const EdgeInsets.symmetric(horizontal: 16),
     textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),

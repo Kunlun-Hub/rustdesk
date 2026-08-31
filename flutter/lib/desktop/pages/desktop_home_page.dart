@@ -23,7 +23,6 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:window_size/window_size.dart' as window_size;
-import '../widgets/button.dart';
 
 class DesktopHomePage extends StatefulWidget {
   const DesktopHomePage({Key? key}) : super(key: key);
@@ -125,24 +124,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       buildTip(context),
       if (!isOutgoingOnly) buildIDBoard(context),
       if (!isOutgoingOnly) buildPasswordBoard(context),
-      FutureBuilder<Widget>(
-        future: Future.value(
-            Obx(() => buildHelpCards(stateGlobal.updateUrl.value))),
-        builder: (_, data) {
-          if (data.hasData) {
-            if (isIncomingOnly) {
-              if (isInHomePage()) {
-                Future.delayed(Duration(milliseconds: 300), () {
-                  _updateWindowSize();
-                });
-              }
-            }
-            return data.data!;
-          } else {
-            return const Offstage();
-          }
-        },
-      ),
+      Obx(() => buildHelpCards(stateGlobal.updateUrl.value)),
     ];
     if (isIncomingOnly) {
       children.addAll([
@@ -670,98 +652,104 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       }
     }
 
-    return Stack(
-      children: [
-        Container(
-          margin: EdgeInsets.fromLTRB(
-              0, marginTop, 0, bind.isIncomingOnly() ? marginTop : 0),
-          child: Container(
-              decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  Color.fromARGB(255, 226, 66, 188),
-                  Color.fromARGB(255, 244, 114, 124),
-                ],
-              )),
-              padding: EdgeInsets.all(20),
-              child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: (title.isNotEmpty
-                          ? <Widget>[
-                              Center(
-                                  child: Text(
-                                translate(title),
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15),
-                              ).marginOnly(bottom: 6)),
-                            ]
-                          : <Widget>[]) +
-                      <Widget>[
-                        if (content.isNotEmpty)
-                          Text(
-                            translate(content),
-                            style: TextStyle(
-                                height: 1.5,
-                                color: Colors.white,
-                                fontWeight: FontWeight.normal,
-                                fontSize: 13),
-                          ).marginOnly(bottom: 20)
-                      ] +
-                      (btnText.isNotEmpty
-                          ? <Widget>[
-                              Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    FixedWidthButton(
-                                      width: 150,
-                                      padding: 8,
-                                      isOutline: true,
-                                      text: translate(btnText),
-                                      textColor: Colors.white,
-                                      borderColor: Colors.white,
-                                      textSize: 20,
-                                      radius: 10,
-                                      onTap: onPressed,
-                                    )
-                                  ])
-                            ]
-                          : <Widget>[]) +
-                      (help != null
-                          ? <Widget>[
-                              Center(
-                                  child: InkWell(
-                                      onTap: () async =>
-                                          await launchUrl(Uri.parse(link!)),
-                                      child: Text(
-                                        translate(help),
-                                        style: TextStyle(
-                                            decoration:
-                                                TextDecoration.underline,
-                                            color: Colors.white,
-                                            fontSize: 12),
-                                      )).marginOnly(top: 6)),
-                            ]
-                          : <Widget>[]))),
-        ),
-        if (closeButton != null && closeButton == true)
-          Positioned(
-            top: 18,
-            right: 0,
-            child: IconButton(
-              icon: Icon(
-                Icons.close,
-                color: Colors.white,
-                size: 20,
-              ),
-              onPressed: closeCard,
+    final isWarning = title == 'Warning' || systemError == content;
+    final accent =
+        isWarning ? DesktopHomeTheme.warning : DesktopHomeTheme.brand;
+
+    return Container(
+      margin: EdgeInsets.fromLTRB(
+          20, marginTop, 20, bind.isIncomingOnly() ? marginTop : 0),
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+      decoration: BoxDecoration(
+        color: DesktopHomeTheme.surfaceMuted(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: DesktopHomeTheme.border(context)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: accent.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(
+              isWarning ? Icons.warning_amber_rounded : Icons.info_outline,
+              size: 17,
+              color: accent,
             ),
           ),
-      ],
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (title.isNotEmpty)
+                  Text(
+                    translate(title),
+                    style: TextStyle(
+                      color: DesktopHomeTheme.textPrimary(context),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ).marginOnly(bottom: 3),
+                if (content.isNotEmpty)
+                  Text(
+                    translate(content),
+                    style: TextStyle(
+                      height: 1.35,
+                      color: DesktopHomeTheme.textSecondary(context),
+                      fontSize: 12,
+                    ),
+                  ),
+                if (btnText.isNotEmpty || help != null)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (btnText.isNotEmpty)
+                        SizedBox(
+                          height: 30,
+                          child: ElevatedButton(
+                            onPressed: onPressed,
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(0, 30),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
+                              textStyle: const TextStyle(fontSize: 12),
+                            ),
+                            child: Text(translate(btnText)),
+                          ),
+                        ),
+                      if (help != null)
+                        InkWell(
+                          onTap: () async => await launchUrl(Uri.parse(link!)),
+                          child: Text(
+                            translate(help),
+                            style: const TextStyle(
+                              color: DesktopHomeTheme.brand,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ).marginOnly(top: 9),
+              ],
+            ),
+          ),
+          if (closeButton == true)
+            IconButton(
+              tooltip: translate('Close'),
+              icon: const Icon(Icons.close_rounded, size: 17),
+              onPressed: closeCard,
+            ),
+        ],
+      ),
     );
   }
 

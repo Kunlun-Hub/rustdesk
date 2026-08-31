@@ -37,8 +37,8 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
   final _svcIsUsingPublicServer = true.obs;
   Timer? _updateTimer;
 
-  double get em => 14.0;
-  double? get height => bind.isIncomingOnly() ? null : em * 3;
+  double get em => 13.0;
+  double? get height => bind.isIncomingOnly() ? null : 42;
 
   void onUsePublicServerGuide() {
     const url = "https://rustdesk.com/pricing";
@@ -78,32 +78,37 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
               .marginOnly(left: em),
         );
 
-    setupServerWidget() => Flexible(
+    setupServerWidget() => Expanded(
           child: Offstage(
             offstage: !(!_svcStopped.value &&
                 stateGlobal.svcStatus.value == SvcStatus.ready &&
                 _svcIsUsingPublicServer.value),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(', ', style: TextStyle(fontSize: em)),
-                Flexible(
-                  child: InkWell(
-                    onTap: onUsePublicServerGuide,
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            translate('setup_server_tip'),
-                            style: TextStyle(
-                                decoration: TextDecoration.underline,
-                                fontSize: em),
-                          ),
+                Container(
+                  width: 1,
+                  height: 14,
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
+                  color: DesktopHomeTheme.border(context),
+                ),
+                Expanded(
+                  child: Tooltip(
+                    message: translate('setup_server_tip'),
+                    child: InkWell(
+                      onTap: onUsePublicServerGuide,
+                      child: Text(
+                        translate('setup_server_tip'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: DesktopHomeTheme.textSecondary(context),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                )
+                ),
               ],
             ),
           ),
@@ -124,11 +129,11 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
                         ? Color.fromARGB(255, 50, 190, 166)
                         : Color.fromARGB(255, 224, 79, 95)),
               ),
-            ).marginSymmetric(horizontal: em),
-            Container(
-              width: isIncomingOnly ? 226 : null,
-              child: _buildConnStatusMsg(),
-            ),
+            ).marginOnly(left: 14, right: 10),
+            if (isIncomingOnly)
+              SizedBox(width: 226, child: _buildConnStatusMsg())
+            else
+              _buildConnStatusMsg(),
             // stop
             if (!isIncomingOnly) startServiceWidget(),
             // ready && public
@@ -137,7 +142,7 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
           ],
         );
 
-    return Container(
+    return SizedBox(
       height: height,
       child: Obx(() => isIncomingOnly
           ? Column(
@@ -164,6 +169,8 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
                   ? translate("not_ready_status")
                   : translate('Ready'),
       style: TextStyle(fontSize: em),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 
