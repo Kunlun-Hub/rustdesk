@@ -3224,6 +3224,7 @@ class _SubmenuButton extends StatelessWidget {
     return SubmenuButton(
       key: key,
       child: child,
+      style: _sessionMenuRowStyle(context),
       menuChildren:
           menuChildren.map((e) => _buildPointerTrackWidget(e, ffi)).toList(),
       menuStyle: _ToolbarTheme.defaultMenuStyle(context),
@@ -3248,6 +3249,7 @@ class MenuButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return MenuItemButton(
         key: key,
+        style: _sessionMenuRowStyle(context),
         onPressed: onPressed != null
             ? () {
                 if (ffi != null) {
@@ -3279,6 +3281,7 @@ class CkbMenuButton extends StatelessWidget {
     final enabled = onChanged != null;
     return MenuItemButton(
       key: key,
+      style: _sessionMenuRowStyle(context),
       onPressed: enabled
           ? () {
               if (ffi != null) _menuDismissCallback(ffi!);
@@ -3327,6 +3330,7 @@ class RdoMenuButton<T> extends StatelessWidget {
     final selected = value == groupValue;
     final enabled = onChanged != null;
     return MenuItemButton(
+      style: _sessionMenuRowStyle(context),
       onPressed: enabled
           ? () {
               if (ffi != null && closeOnActivate) _menuDismissCallback(ffi!);
@@ -3351,6 +3355,24 @@ class RdoMenuButton<T> extends StatelessWidget {
       ),
     );
   }
+}
+
+ButtonStyle _sessionMenuRowStyle(BuildContext context) {
+  return ButtonStyle(
+    minimumSize: const MaterialStatePropertyAll(Size(160, 36)),
+    padding: const MaterialStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+    foregroundColor:
+        MaterialStatePropertyAll(DesktopHomeTheme.textPrimary(context)),
+    overlayColor:
+        MaterialStatePropertyAll(DesktopHomeTheme.brand.withOpacity(0.08)),
+    textStyle: const MaterialStatePropertyAll(
+      TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+    ),
+    shape: MaterialStatePropertyAll(RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(_ToolbarTheme.menuButtonBorderRadius),
+    )),
+  );
 }
 
 class _DraggableShowHide extends StatefulWidget {

@@ -2241,7 +2241,8 @@ class _CheckboxState extends State<_Checkbox> {
       });
     }
 
-    return GestureDetector(
+    return _SettingActionRow(
+      onTap: () => onChanged(!value),
       child: Row(
         children: [
           _SettingCheckbox(
@@ -2252,9 +2253,8 @@ class _CheckboxState extends State<_Checkbox> {
             child: Text(translate(widget.label)),
           )
         ],
-      ).marginOnly(left: _kCheckBoxLeftMargin),
-      onTap: () => onChanged(!value),
-    );
+      ),
+    ).marginOnly(left: _kCheckBoxLeftMargin);
   }
 }
 
@@ -2655,6 +2655,34 @@ class _SettingSwitch extends StatelessWidget {
   }
 }
 
+class _SettingActionRow extends StatelessWidget {
+  const _SettingActionRow({required this.child, this.onTap, this.indent = 0});
+
+  final Widget child;
+  final VoidCallback? onTap;
+  final double indent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(DesktopHomeTheme.controlRadius),
+        hoverColor: DesktopHomeTheme.brand.withOpacity(0.05),
+        focusColor: DesktopHomeTheme.brand.withOpacity(0.07),
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 36),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(10 + indent, 7, 10, 7),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ignore: non_constant_identifier_names
 Widget _Card(
     {required String title,
@@ -2746,9 +2774,10 @@ Widget _OptionCheckBox(
     enabled = false;
   }
 
-  return GestureDetector(
-    child: Obx(
-      () => Row(
+  return Obx(
+    () => _SettingActionRow(
+      onTap: enabled && !isOptFixed ? () => onChanged(!ref.value) : null,
+      child: Row(
         children: [
           _SettingCheckbox(
                   value: ref.value,
@@ -2766,11 +2795,6 @@ Widget _OptionCheckBox(
         ],
       ),
     ).marginOnly(left: _kCheckBoxLeftMargin),
-    onTap: enabled && !isOptFixed
-        ? () {
-            onChanged(!ref.value);
-          }
-        : null,
   );
 }
 
@@ -2788,7 +2812,8 @@ Widget _Radio<T>(BuildContext context,
           }
         }
       : null;
-  return GestureDetector(
+  return _SettingActionRow(
+    onTap: () => onChange2?.call(value),
     child: Row(
       children: [
         _SettingRadio<T>(
@@ -2802,9 +2827,8 @@ Widget _Radio<T>(BuildContext context,
               .marginOnly(left: 5),
         ),
       ],
-    ).marginOnly(left: _kRadioLeftMargin),
-    onTap: () => onChange2?.call(value),
-  );
+    ),
+  ).marginOnly(left: _kRadioLeftMargin);
 }
 
 class WaylandCard extends StatefulWidget {
