@@ -251,13 +251,8 @@ class FileModel {
                 ),
               ),
               showCheckbox
-                  ? CheckboxListTile(
-                      contentPadding: const EdgeInsets.all(0),
-                      dense: true,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: Text(
-                        translate("Do this for all conflicts"),
-                      ),
+                  ? DialogCheckboxRow(
+                      label: translate("Do this for all conflicts"),
                       value: fileConfirmCheckboxRemember,
                       onChanged: (v) {
                         if (v == null) return;
@@ -793,7 +788,6 @@ class FileController {
       submit() => close(true);
       return CustomAlertDialog(
         title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.warning_rounded, color: Colors.red),
             Expanded(
@@ -817,13 +811,8 @@ class FileController {
               ),
             ).paddingOnly(top: 20),
             showCheckbox
-                ? CheckboxListTile(
-                    contentPadding: const EdgeInsets.all(0),
-                    dense: true,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    title: Text(
-                      translate("Do this for all conflicts"),
-                    ),
+                ? DialogCheckboxRow(
+                    label: translate("Do this for all conflicts"),
                     value: _removeCheckboxRemember,
                     onChanged: (v) {
                       if (v == null) return;
@@ -844,6 +833,7 @@ class FileController {
             "OK",
             icon: Icon(Icons.done_rounded),
             onPressed: submit,
+            isDanger: true,
           ),
         ],
         onSubmit: submit,

@@ -3100,6 +3100,7 @@ class ServerConfig {
 Widget dialogButton(String text,
     {required VoidCallback? onPressed,
     bool isOutline = false,
+    bool isDanger = false,
     Widget? icon,
     TextStyle? style,
     ButtonStyle? buttonStyle}) {
@@ -3118,7 +3119,14 @@ Widget dialogButton(String text,
           borderRadius: BorderRadius.circular(DesktopHomeTheme.controlRadius),
         ),
       ),
-    ).merge(buttonStyle);
+    ).merge(isDanger
+        ? ButtonStyle(
+            backgroundColor: const MaterialStatePropertyAll(Color(0xFFE5484D)),
+            foregroundColor: const MaterialStatePropertyAll(Colors.white),
+            overlayColor:
+                MaterialStatePropertyAll(Colors.white.withOpacity(0.10)),
+          ).merge(buttonStyle)
+        : buttonStyle);
     if (isOutline) {
       return icon == null
           ? OutlinedButton(
@@ -3152,6 +3160,94 @@ Widget dialogButton(String text,
       child: Text(
         translate(text),
         style: style,
+      ),
+    );
+  }
+}
+
+/// Compact checkbox row used by desktop dialogs.
+///
+/// Mobile keeps the existing Material list-tile treatment so this desktop
+/// refresh does not change touch layouts.
+class DialogCheckboxRow extends StatelessWidget {
+  const DialogCheckboxRow({
+    Key? key,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  }) : super(key: key);
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool?>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isDesktop && !isWebDesktop) {
+      return CheckboxListTile(
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        controlAffinity: ListTileControlAffinity.leading,
+        title: Text(label),
+        value: value,
+        onChanged: onChanged,
+      );
+    }
+
+    final enabled = onChanged != null;
+    final secondary = DesktopHomeTheme.textSecondary(context);
+    final borderColor = enabled ? secondary : secondary.withOpacity(0.35);
+    final labelColor = enabled
+        ? DesktopHomeTheme.textPrimary(context)
+        : secondary.withOpacity(0.55);
+
+    return Semantics(
+      checked: value,
+      enabled: enabled,
+      button: true,
+      label: label,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: enabled ? () => onChanged?.call(!value) : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                width: 18,
+                height: 18,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: value
+                      ? DesktopHomeTheme.brand
+                      : DesktopHomeTheme.surfaceMuted(context),
+                  borderRadius: BorderRadius.circular(5),
+                  border: Border.all(
+                    color: value ? DesktopHomeTheme.brand : borderColor,
+                    width: 1.2,
+                  ),
+                ),
+                child: value
+                    ? const Icon(Icons.check_rounded,
+                        size: 14, color: Colors.white)
+                    : null,
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: labelColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

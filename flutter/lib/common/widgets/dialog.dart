@@ -1037,11 +1037,8 @@ _connectDialog(
       bool remember,
       ValueChanged<bool?>? onChanged,
     ) {
-      return CheckboxListTile(
-        contentPadding: const EdgeInsets.all(0),
-        dense: true,
-        controlAffinity: ListTileControlAffinity.leading,
-        title: Text(desc),
+      return DialogCheckboxRow(
+        label: desc,
         value: remember,
         onChanged: onChanged,
       );
@@ -1478,13 +1475,8 @@ showSetOSPassword(
         mainAxisSize: MainAxisSize.min,
         children: [
           PasswordWidget(controller: controller),
-          CheckboxListTile(
-            contentPadding: const EdgeInsets.all(0),
-            dense: true,
-            controlAffinity: ListTileControlAffinity.leading,
-            title: Text(
-              translate('Auto Login'),
-            ),
+          DialogCheckboxRow(
+            label: translate('Auto Login'),
             value: autoLogin,
             onChanged: (v) {
               if (v == null) return;
@@ -2371,11 +2363,8 @@ void enter2FaDialog(
       onChanged: () => submitReady.value = codeField.isReady,
     );
 
-    final trustField = Obx(() => CheckboxListTile(
-          contentPadding: const EdgeInsets.all(0),
-          dense: true,
-          controlAffinity: ListTileControlAffinity.leading,
-          title: Text(translate("Trust this device")),
+    final trustField = Obx(() => DialogCheckboxRow(
+          label: translate("Trust this device"),
           value: trustThisDevice.value,
           onChanged: (value) {
             if (value == null) return;
@@ -2827,6 +2816,7 @@ void manageTrustedDeviceDialog() async {
                           selectedDevices,
                         );
                       },
+                isDanger: true,
                 isOutline: false)
             .marginOnly(top: 12)),
         dialogButton(translate("Close"), onPressed: close, isOutline: true)

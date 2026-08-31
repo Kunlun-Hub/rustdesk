@@ -915,13 +915,8 @@ Future<bool> closeConfirmDialog() async {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(translate("Disconnect all devices?")),
-            CheckboxListTile(
-              contentPadding: const EdgeInsets.all(0),
-              dense: true,
-              controlAffinity: ListTileControlAffinity.leading,
-              title: Text(
-                translate("Confirm before closing multiple tabs"),
-              ),
+            DialogCheckboxRow(
+              label: translate("Confirm before closing multiple tabs"),
               value: confirm,
               onChanged: (v) {
                 if (v == null) return;
