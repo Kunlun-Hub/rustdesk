@@ -3740,35 +3740,142 @@ class ComboBox extends StatelessWidget {
     }
     var ref = values[index].obs;
     current = keys[index];
+    if (isDesktop) {
+      final triggerKey = GlobalKey();
+      return Obx(() => Material(
+            key: triggerKey,
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius:
+                  BorderRadius.circular(DesktopHomeTheme.controlRadius),
+              onTap: enabled
+                  ? () async {
+                      final box = triggerKey.currentContext?.findRenderObject()
+                          as RenderBox?;
+                      if (box == null) return;
+                      final overlay = Overlay.of(context)
+                          .context
+                          .findRenderObject() as RenderBox;
+                      final offset =
+                          box.localToGlobal(Offset.zero, ancestor: overlay);
+                      final selected = await showMenu<String>(
+                        context: context,
+                        elevation: 8,
+                        color: DesktopHomeTheme.surface(context),
+                        surfaceTintColor: Colors.transparent,
+                        shadowColor: Colors.black.withOpacity(0.16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                              DesktopHomeTheme.controlRadius),
+                          side: BorderSide(
+                              color: DesktopHomeTheme.border(context)),
+                        ),
+                        constraints: BoxConstraints(
+                          minWidth: box.size.width,
+                          maxWidth: box.size.width,
+                        ),
+                        position: RelativeRect.fromRect(
+                          Rect.fromLTWH(offset.dx, offset.dy + box.size.height,
+                              box.size.width, 0),
+                          Offset.zero & overlay.size,
+                        ),
+                        items: values.map((value) {
+                          final selected = value == ref.value;
+                          return PopupMenuItem<String>(
+                            value: value,
+                            height: 36,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    value,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color:
+                                          DesktopHomeTheme.textPrimary(context),
+                                      fontSize: 13,
+                                      fontWeight: selected
+                                          ? FontWeight.w600
+                                          : FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                if (selected)
+                                  const Icon(Icons.check_rounded,
+                                      size: 17, color: DesktopHomeTheme.brand),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      );
+                      if (selected != null && selected != ref.value) {
+                        ref.value = selected;
+                        current = selected;
+                        onChanged(keys[values.indexOf(selected)]);
+                      }
+                    }
+                  : null,
+              child: Container(
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: DesktopHomeTheme.surfaceMuted(context),
+                  borderRadius:
+                      BorderRadius.circular(DesktopHomeTheme.controlRadius),
+                  border: Border.all(
+                    color: enabled
+                        ? DesktopHomeTheme.border(context)
+                        : DesktopHomeTheme.border(context).withOpacity(0.55),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        ref.value,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: enabled
+                              ? DesktopHomeTheme.textPrimary(context)
+                              : DesktopHomeTheme.textSecondary(context)
+                                  .withOpacity(0.45),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Icon(Icons.keyboard_arrow_down_rounded,
+                        size: 18,
+                        color: enabled
+                            ? DesktopHomeTheme.textSecondary(context)
+                            : DesktopHomeTheme.textSecondary(context)
+                                .withOpacity(0.35)),
+                  ],
+                ),
+              ),
+            ),
+          )).marginOnly(bottom: 5);
+    }
     return Container(
       decoration: BoxDecoration(
-        color: isDesktop
-            ? DesktopHomeTheme.surfaceMuted(context)
-            : Colors.transparent,
+        color: Colors.transparent,
         border: Border.all(
           color: enabled
-              ? (isDesktop
-                  ? DesktopHomeTheme.border(context)
-                  : MyTheme.color(context).border2 ?? MyTheme.border)
-              : (isDesktop
-                  ? DesktopHomeTheme.border(context).withOpacity(0.55)
-                  : MyTheme.border),
+              ? MyTheme.color(context).border2 ?? MyTheme.border
+              : MyTheme.border,
         ),
-        borderRadius: BorderRadius.circular(
-            isDesktop ? DesktopHomeTheme.controlRadius : 8),
+        borderRadius: BorderRadius.circular(8),
       ),
-      height: isDesktop ? 36 : 42,
+      height: 42,
       child: Obx(() => DropdownButton<String>(
             isExpanded: true,
             value: ref.value,
             elevation: 8,
-            dropdownColor: isDesktop ? DesktopHomeTheme.surface(context) : null,
             underline: Container(),
             style: TextStyle(
                 color: enabled
-                    ? (isDesktop
-                        ? DesktopHomeTheme.textPrimary(context)
-                        : Theme.of(context).textTheme.titleMedium?.color)
+                    ? Theme.of(context).textTheme.titleMedium?.color
                     : disabledTextColor(context, enabled)),
             icon: const Icon(
               Icons.expand_more_sharp,
@@ -3789,11 +3896,10 @@ class ComboBox extends StatelessWidget {
                 child: Text(
                   value,
                   style: TextStyle(
-                    fontSize: isDesktop ? 13 : 15,
-                    fontWeight: isDesktop ? FontWeight.w500 : FontWeight.normal,
+                    fontSize: 15,
                   ),
                   overflow: TextOverflow.ellipsis,
-                ).marginOnly(left: isDesktop ? 12 : 15),
+                ).marginOnly(left: 15),
               );
             }).toList(),
           )),
