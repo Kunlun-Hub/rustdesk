@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
+import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -36,22 +37,23 @@ void handleUpdate(String releasePageUrl) {
                 .marginSymmetric(horizontal: 8)
                 .paddingOnly(top: 12),
         actions: [
-          if (_isExtracting.isFalse) dialogButton(translate('Cancel'), onPressed: () async {
-            onCanceled.value();
-            await bind.mainSetCommon(
-                key: 'cancel-downloader', value: downloadId.value);
-            // Wait for the downloader to be removed.
-            for (int i = 0; i < 10; i++) {
-              await Future.delayed(const Duration(milliseconds: 300));
-              final isCanceled = 'error:Downloader not found' ==
-                  await bind.mainGetCommon(
-                      key: 'download-data-${downloadId.value}');
-              if (isCanceled) {
-                break;
+          if (_isExtracting.isFalse)
+            dialogButton(translate('Cancel'), onPressed: () async {
+              onCanceled.value();
+              await bind.mainSetCommon(
+                  key: 'cancel-downloader', value: downloadId.value);
+              // Wait for the downloader to be removed.
+              for (int i = 0; i < 10; i++) {
+                await Future.delayed(const Duration(milliseconds: 300));
+                final isCanceled = 'error:Downloader not found' ==
+                    await bind.mainGetCommon(
+                        key: 'download-data-${downloadId.value}');
+                if (isCanceled) {
+                  break;
+                }
               }
-            }
-            close();
-          }, isOutline: true),
+              close();
+            }, isOutline: true),
         ]);
   });
 }
@@ -253,15 +255,85 @@ class UpdateProgressState extends State<UpdateProgress> {
 
   @override
   Widget build(BuildContext context) {
-    getValue() => _totalSize == null
-        ? 0.0
+    final value = _totalSize == null || _isExtracting.isTrue
+        ? null
         : (_totalSize == 0 ? 1.0 : _downloadedSize / _totalSize!);
-    return LinearProgressIndicator(
-      value: _isExtracting.isTrue ? null : getValue(),
-      minHeight: 20,
-      borderRadius: BorderRadius.circular(5),
-      backgroundColor: Colors.grey[300],
-      valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+    final percent = value == null ? null : (value * 100).clamp(0, 100).round();
+
+    String formatBytes(int bytes) {
+      if (bytes < 1024) return '$bytes B';
+      if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+
+    return Container(
+      constraints: const BoxConstraints(minWidth: 360),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: DesktopHomeTheme.surfaceMuted(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: DesktopHomeTheme.border(context)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: DesktopHomeTheme.brand.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(
+                  _isExtracting.isTrue
+                      ? Icons.inventory_2_outlined
+                      : Icons.download_rounded,
+                  size: 18,
+                  color: DesktopHomeTheme.brand,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  _isExtracting.isTrue
+                      ? translate('Preparing for installation ...')
+                      : (_totalSize == null
+                          ? translate('Connecting...')
+                          : '${formatBytes(_downloadedSize)} / ${formatBytes(_totalSize!)}'),
+                  style: TextStyle(
+                    color: DesktopHomeTheme.textPrimary(context),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (percent != null)
+                Text(
+                  '$percent%',
+                  style: TextStyle(
+                    color: DesktopHomeTheme.textSecondary(context),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: value,
+              minHeight: 6,
+              backgroundColor: DesktopHomeTheme.border(context),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(DesktopHomeTheme.brand),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_hbb/consts.dart';
+import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 
@@ -8,12 +9,7 @@ import '../../common.dart';
 
 typedef KBChosenCallback = Future<bool> Function(String);
 
-const double _kImageMarginVertical = 6.0;
-const double _kImageMarginHorizontal = 10.0;
-const double _kImageBoarderWidth = 4.0;
-const double _kImagePaddingWidth = 4.0;
-const Color _kImageBorderColor = Color.fromARGB(125, 202, 247, 2);
-const double _kBorderRadius = 6.0;
+const double _kCardGap = 12.0;
 const String _kKBLayoutTypeISO = 'ISO';
 const String _kKBLayoutTypeNotISO = 'Not ISO';
 
@@ -25,41 +21,18 @@ const _kKBLayoutImageMap = {
 class _KBImage extends StatelessWidget {
   final String kbLayoutType;
   final double imageWidth;
-  final RxString chosenType;
   const _KBImage({
     Key? key,
     required this.kbLayoutType,
     required this.imageWidth,
-    required this.chosenType,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() {
-      return Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(_kBorderRadius),
-          border: Border.all(
-            color: chosenType.value == kbLayoutType
-                ? _kImageBorderColor
-                : Colors.transparent,
-            width: _kImageBoarderWidth,
-          ),
-        ),
-        margin: EdgeInsets.symmetric(
-          horizontal: _kImageMarginHorizontal,
-          vertical: _kImageMarginVertical,
-        ),
-        padding: EdgeInsets.all(_kImagePaddingWidth),
-        child: SvgPicture.asset(
-          'assets/${_kKBLayoutImageMap[kbLayoutType] ?? ""}.svg',
-          width: imageWidth -
-              _kImageMarginHorizontal * 2 -
-              _kImagePaddingWidth * 2 -
-              _kImageBoarderWidth * 2,
-        ),
-      );
-    });
+    return SvgPicture.asset(
+      'assets/${_kKBLayoutImageMap[kbLayoutType] ?? ""}.svg',
+      width: imageWidth - 32,
+    );
   }
 }
 
@@ -86,37 +59,88 @@ class _KBChooser extends StatelessWidget {
       }
     }
 
-    return Column(
-      children: [
-        TextButton(
-          onPressed: () {
-            onChanged(kbLayoutType);
-          },
-          child: _KBImage(
-            kbLayoutType: kbLayoutType,
-            imageWidth: imageWidth,
-            chosenType: chosenType,
+    return Obx(() {
+      final selected = chosenType.value == kbLayoutType;
+      return Semantics(
+        selected: selected,
+        button: true,
+        label: kbLayoutType,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => onChanged(kbLayoutType),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              width: imageWidth,
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+              decoration: BoxDecoration(
+                color: selected
+                    ? DesktopHomeTheme.brand.withOpacity(0.07)
+                    : DesktopHomeTheme.surfaceMuted(context),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: selected
+                      ? DesktopHomeTheme.brand
+                      : DesktopHomeTheme.border(context),
+                  width: selected ? 1.5 : 1,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: _KBImage(
+                        kbLayoutType: kbLayoutType,
+                        imageWidth: imageWidth,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 140),
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? DesktopHomeTheme.brand
+                              : Colors.transparent,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: selected
+                                ? DesktopHomeTheme.brand
+                                : DesktopHomeTheme.textSecondary(context),
+                            width: 1.3,
+                          ),
+                        ),
+                        child: selected
+                            ? const Icon(Icons.check_rounded,
+                                size: 13, color: Colors.white)
+                            : null,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        kbLayoutType,
+                        style: TextStyle(
+                          color: selected
+                              ? DesktopHomeTheme.brand
+                              : DesktopHomeTheme.textPrimary(context),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
-          style: TextButton.styleFrom(padding: EdgeInsets.zero),
         ),
-        TextButton(
-          child: Row(
-            children: [
-              Obx(() => Radio(
-                    splashRadius: 0,
-                    value: kbLayoutType,
-                    groupValue: chosenType.value,
-                    onChanged: onChanged,
-                  )),
-              Text(kbLayoutType),
-            ],
-          ),
-          onPressed: () {
-            onChanged(kbLayoutType);
-          },
-        ),
-      ],
-    );
+      );
+    });
   }
 }
 
@@ -124,20 +148,18 @@ class KBLayoutTypeChooser extends StatelessWidget {
   final RxString chosenType;
   final double width;
   final double height;
-  final double dividerWidth;
   final KBChosenCallback cb;
   KBLayoutTypeChooser({
     Key? key,
     required this.chosenType,
     required this.width,
     required this.height,
-    required this.dividerWidth,
     required this.cb,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final imageWidth = width / 2 - dividerWidth;
+    final imageWidth = (width - _kCardGap) / 2;
     return SizedBox(
       width: width,
       height: height,
@@ -150,9 +172,7 @@ class KBLayoutTypeChooser extends StatelessWidget {
               chosenType: chosenType,
               cb: cb,
             ),
-            VerticalDivider(
-              width: dividerWidth * 2,
-            ),
+            const SizedBox(width: _kCardGap),
             _KBChooser(
               kbLayoutType: _kKBLayoutTypeNotISO,
               imageWidth: imageWidth,
@@ -211,14 +231,13 @@ showKBLayoutTypeChooser(
       content: KBLayoutTypeChooser(
           chosenType: KBLayoutType,
           width: 360,
-          height: 200,
-          dividerWidth: 4.0,
+          height: 184,
           cb: (String v) async {
             await bind.setLocalKbLayoutType(kbLayoutType: v);
             KBLayoutType.value = bind.getLocalKbLayoutType();
             return v == KBLayoutType.value;
           }),
-      actions: [dialogButton('Close', onPressed: close)],
+      actions: [dialogButton('Close', onPressed: close, isOutline: true)],
       onCancel: close,
     );
   });

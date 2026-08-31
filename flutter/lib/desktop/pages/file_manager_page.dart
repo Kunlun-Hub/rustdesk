@@ -828,7 +828,6 @@ class _FileManagerViewState extends State<FileManagerView> {
                           cancel() => close(false);
                           return CustomAlertDialog(
                             title: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 SvgPicture.asset("assets/folder_new.svg",
                                     colorFilter: svgColor(MyTheme.accent)),
