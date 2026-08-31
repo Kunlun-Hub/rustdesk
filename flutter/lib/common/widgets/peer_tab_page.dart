@@ -140,11 +140,13 @@ class _PeerTabPageState extends State<PeerTabPage>
     return LayoutBuilder(builder: (context, constraints) {
       final showLabels = isDesktop && constraints.maxWidth >= 430;
       var counter = -1;
-      return ReorderableListView(
+      return ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+        child: ReorderableListView(
           buildDefaultDragHandles: false,
           onReorder: model.reorder,
           scrollDirection: Axis.horizontal,
-          physics: NeverScrollableScrollPhysics(),
+          physics: const ClampingScrollPhysics(),
           children: model.visibleEnabledOrderedIndexs.map((t) {
             final selected = model.currentTab == t;
             final color = selected
@@ -164,49 +166,55 @@ class _PeerTabPageState extends State<PeerTabPage>
             return ReorderableDragStartListener(
                 key: ValueKey(t),
                 index: counter,
-                child: Obx(() => Tooltip(
-                      preferBelow: false,
-                      message: model.tabTooltip(t),
-                      onTriggered:
-                          isMobile ? mobileShowTabVisibilityMenu : null,
-                      child: InkWell(
-                        child: Container(
-                          height: 34,
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          decoration: selected
-                              ? decoSelected
-                              : (hover.value ? deco : null),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(model.tabIcon(t), color: color, size: 17),
-                              if (showLabels) ...[
-                                const SizedBox(width: 6),
-                                Text(
-                                  translate(model.tabTooltip(t)),
-                                  style: TextStyle(
-                                    color: color,
-                                    fontSize: 12,
-                                    fontWeight: selected
-                                        ? FontWeight.w600
-                                        : FontWeight.w500,
-                                  ),
+                child: Obx(() {
+                  // Always observe hover. For selected tabs the conditional
+                  // below otherwise short-circuits before reading it, causing
+                  // GetX to replace the strip with an ErrorWidget.
+                  final hovering = hover.value;
+                  return Tooltip(
+                    preferBelow: false,
+                    message: model.tabTooltip(t),
+                    onTriggered: isMobile ? mobileShowTabVisibilityMenu : null,
+                    child: InkWell(
+                      child: Container(
+                        height: 34,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration:
+                            selected ? decoSelected : (hovering ? deco : null),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(model.tabIcon(t), color: color, size: 17),
+                            if (showLabels) ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                translate(model.tabTooltip(t)),
+                                style: TextStyle(
+                                  color: color,
+                                  fontSize: 12,
+                                  fontWeight: selected
+                                      ? FontWeight.w600
+                                      : FontWeight.w500,
                                 ),
-                              ],
+                              ),
                             ],
-                          ),
-                        ).paddingOnly(right: 3),
-                        onTap: isOptionFixed(kOptionPeerTabIndex)
-                            ? null
-                            : () async {
-                                await handleTabSelection(t);
-                                await bind.setLocalFlutterOption(
-                                    k: kOptionPeerTabIndex, v: t.toString());
-                              },
-                        onHover: (value) => hover.value = value,
-                      ),
-                    )));
-          }).toList());
+                          ],
+                        ),
+                      ).paddingOnly(right: 3),
+                      onTap: isOptionFixed(kOptionPeerTabIndex)
+                          ? null
+                          : () async {
+                              await handleTabSelection(t);
+                              await bind.setLocalFlutterOption(
+                                  k: kOptionPeerTabIndex, v: t.toString());
+                            },
+                      onHover: (value) => hover.value = value,
+                    ),
+                  );
+                }));
+          }).toList(),
+        ),
+      );
     });
   }
 

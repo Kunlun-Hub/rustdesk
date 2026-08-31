@@ -14,7 +14,8 @@ class DesktopHomeTheme {
   static const Color warning = Color(0xFFF5A524);
   static const Color danger = Color(0xFFE5484D);
 
-  static const double navigationWidth = 288;
+  static const double navigationWidth = 252;
+  static const double primaryNavigationWidth = 168;
   static const double radius = 14;
   static const double controlRadius = 10;
 

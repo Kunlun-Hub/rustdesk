@@ -120,7 +120,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           alignment: Alignment.center,
           child: loadPowered(context),
         ),
-      _buildBrandHeader(context),
       buildTip(context),
       if (!isOutgoingOnly) buildIDBoard(context),
       if (!isOutgoingOnly) buildPasswordBoard(context),
@@ -188,61 +187,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     return ColoredBox(
       color: DesktopHomeTheme.canvas(context),
       child: const ConnectionPage(),
-    );
-  }
-
-  Widget _buildBrandHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 4),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: DesktopHomeTheme.brand.withOpacity(0.10),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: loadIcon(24),
-          ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  bind.mainGetAppNameSync(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: DesktopHomeTheme.textPrimary(context),
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  translate('Remote Desktop'),
-                  style: DesktopHomeTheme.caption(context),
-                ),
-              ],
-            ),
-          ),
-          if (!bind.isDisableSettings())
-            IconButton(
-              tooltip: translate('Settings'),
-              splashRadius: 18,
-              onPressed: DesktopTabPage.onAddSetting,
-              icon: Icon(
-                Icons.settings_outlined,
-                size: 19,
-                color: DesktopHomeTheme.textSecondary(context),
-              ),
-            ),
-        ],
-      ),
     );
   }
 

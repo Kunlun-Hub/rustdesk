@@ -253,6 +253,7 @@ class DesktopTab extends StatefulWidget {
   final Color? selectedTabBackgroundColor;
   final Color? unSelectedTabBackgroundColor;
   final Color? selectedBorderColor;
+  final bool hideTabStrip;
 
   final DesktopTabController controller;
 
@@ -278,6 +279,7 @@ class DesktopTab extends StatefulWidget {
     this.selectedTabBackgroundColor,
     this.unSelectedTabBackgroundColor,
     this.selectedBorderColor,
+    this.hideTabStrip = false,
   }) : super(key: key);
 
   static RxString tablabelGetter(String peerId) {
@@ -315,6 +317,7 @@ class _DesktopTabState extends State<DesktopTab>
   Color? get unSelectedTabBackgroundColor =>
       widget.unSelectedTabBackgroundColor;
   Color? get selectedBorderColor => widget.selectedBorderColor;
+  bool get hideTabStrip => widget.hideTabStrip;
   DesktopTabController get controller => widget.controller;
   RxList<String> get invisibleTabKeys => widget.invisibleTabKeys;
   Debouncer get _scrollDebounce => widget._scrollDebounce;
@@ -667,35 +670,39 @@ class _DesktopTabState extends State<DesktopTab>
                         ),
                       ),
                       Expanded(
-                          child: Listener(
-                              // handle mouse wheel
-                              onPointerSignal: (e) {
-                                if (e is PointerScrollEvent) {
-                                  final sc =
-                                      controller.state.value.scrollController;
-                                  if (!sc.canScroll) return;
-                                  _scrollDebounce.call(() {
-                                    double adjust = 2.5;
-                                    sc.animateTo(
-                                        sc.offset + e.scrollDelta.dy * adjust,
-                                        duration: Duration(milliseconds: 200),
-                                        curve: Curves.ease);
-                                  });
-                                }
-                              },
-                              child: _ListView(
-                                controller: controller,
-                                invisibleTabKeys: invisibleTabKeys,
-                                tabBuilder: tabBuilder,
-                                tabMenuBuilder: tabMenuBuilder,
-                                labelGetter: labelGetter,
-                                maxLabelWidth: maxLabelWidth,
-                                selectedTabBackgroundColor:
-                                    selectedTabBackgroundColor,
-                                unSelectedTabBackgroundColor:
-                                    unSelectedTabBackgroundColor,
-                                selectedBorderColor: selectedBorderColor,
-                              ))),
+                          child: hideTabStrip
+                              ? const SizedBox.expand()
+                              : Listener(
+                                  // handle mouse wheel
+                                  onPointerSignal: (e) {
+                                    if (e is PointerScrollEvent) {
+                                      final sc = controller
+                                          .state.value.scrollController;
+                                      if (!sc.canScroll) return;
+                                      _scrollDebounce.call(() {
+                                        double adjust = 2.5;
+                                        sc.animateTo(
+                                            sc.offset +
+                                                e.scrollDelta.dy * adjust,
+                                            duration:
+                                                Duration(milliseconds: 200),
+                                            curve: Curves.ease);
+                                      });
+                                    }
+                                  },
+                                  child: _ListView(
+                                    controller: controller,
+                                    invisibleTabKeys: invisibleTabKeys,
+                                    tabBuilder: tabBuilder,
+                                    tabMenuBuilder: tabMenuBuilder,
+                                    labelGetter: labelGetter,
+                                    maxLabelWidth: maxLabelWidth,
+                                    selectedTabBackgroundColor:
+                                        selectedTabBackgroundColor,
+                                    unSelectedTabBackgroundColor:
+                                        unSelectedTabBackgroundColor,
+                                    selectedBorderColor: selectedBorderColor,
+                                  ))),
                     ],
                   ))),
           // hide simulated action buttons when we in compatible ui mode, because of reusing system title bar.

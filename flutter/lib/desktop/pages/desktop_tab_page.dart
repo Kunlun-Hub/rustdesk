@@ -3,6 +3,7 @@ import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
+import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
@@ -96,17 +97,10 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
             backgroundColor: Theme.of(context).colorScheme.background,
             body: DesktopTab(
               controller: tabController,
-              tail: Offstage(
-                offstage: bind.isIncomingOnly() || bind.isDisableSettings(),
-                child: ActionIcon(
-                  message: 'Settings',
-                  icon: IconFont.menu,
-                  onTap: DesktopTabPage.onAddSetting,
-                  isClose: false,
-                  iconSize: 14,
-                  boxSize: 39,
-                ),
-              ),
+              hideTabStrip: !bind.isIncomingOnly(),
+              pageViewBuilder: bind.isIncomingOnly()
+                  ? null
+                  : (pageView) => _buildPrimaryShell(context, pageView),
             )));
     return isMacOS || kUseCompatibleUiMode
         ? tabWidget
@@ -117,5 +111,165 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
               child: tabWidget,
             ),
           );
+  }
+
+  Widget _buildPrimaryShell(BuildContext context, Widget pageView) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final compact = constraints.maxWidth < 940;
+      return Row(
+        children: [
+          _DesktopPrimaryNavigation(
+              controller: tabController, compact: compact),
+          VerticalDivider(
+            width: 1,
+            thickness: 1,
+            color: DesktopHomeTheme.border(context),
+          ),
+          Expanded(child: pageView),
+        ],
+      );
+    });
+  }
+}
+
+class _DesktopPrimaryNavigation extends StatelessWidget {
+  const _DesktopPrimaryNavigation({
+    required this.controller,
+    required this.compact,
+  });
+
+  final DesktopTabController controller;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: compact ? 64 : DesktopHomeTheme.primaryNavigationWidth,
+      color: DesktopHomeTheme.navigation(context),
+      child: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(14, 18, compact ? 14 : 12, 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: DesktopHomeTheme.brand.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: loadIcon(22),
+                ),
+                if (!compact) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      bind.mainGetAppNameSync(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: DesktopHomeTheme.textPrimary(context),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Obx(() {
+            final selectedKey = controller.state.value.selectedTabInfo.key;
+            return _PrimaryNavigationItem(
+              label: translate('Remote Control'),
+              icon: Icons.desktop_windows_outlined,
+              compact: compact,
+              selected: selectedKey == kTabLabelHomePage,
+              onTap: () => controller.jumpToByKey(kTabLabelHomePage),
+            );
+          }),
+          const Spacer(),
+          if (!bind.isDisableSettings())
+            Obx(() {
+              final selectedKey = controller.state.value.selectedTabInfo.key;
+              return _PrimaryNavigationItem(
+                label: translate('Settings'),
+                icon: Icons.settings_outlined,
+                compact: compact,
+                selected: selectedKey == kTabLabelSettingPage,
+                onTap: DesktopTabPage.onAddSetting,
+              );
+            }),
+          const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrimaryNavigationItem extends StatelessWidget {
+  const _PrimaryNavigationItem({
+    required this.label,
+    required this.icon,
+    required this.compact,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool compact;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected
+        ? DesktopHomeTheme.brand
+        : DesktopHomeTheme.textSecondary(context);
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      child: Material(
+        color: selected
+            ? DesktopHomeTheme.brand.withOpacity(0.10)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(DesktopHomeTheme.controlRadius),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(DesktopHomeTheme.controlRadius),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            child: Row(
+              mainAxisAlignment:
+                  compact ? MainAxisAlignment.center : MainAxisAlignment.start,
+              children: [
+                Icon(icon, size: 18, color: color),
+                if (!compact) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: selected
+                            ? DesktopHomeTheme.textPrimary(context)
+                            : color,
+                        fontSize: 13,
+                        fontWeight:
+                            selected ? FontWeight.w600 : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    return compact ? Tooltip(message: label, child: content) : content;
   }
 }
