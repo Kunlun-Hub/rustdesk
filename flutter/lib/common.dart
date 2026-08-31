@@ -3121,7 +3121,8 @@ Widget dialogButton(String text,
       ),
     ).merge(isDanger
         ? ButtonStyle(
-            backgroundColor: const MaterialStatePropertyAll(Color(0xFFE5484D)),
+            backgroundColor:
+                const MaterialStatePropertyAll(DesktopHomeTheme.danger),
             foregroundColor: const MaterialStatePropertyAll(Colors.white),
             overlayColor:
                 MaterialStatePropertyAll(Colors.white.withOpacity(0.10)),

@@ -12,6 +12,7 @@ class DesktopHomeTheme {
   static const Color brandHover = Color(0xFF0B68E8);
   static const Color success = Color(0xFF24B47E);
   static const Color warning = Color(0xFFF5A524);
+  static const Color danger = Color(0xFFE5484D);
 
   static const double navigationWidth = 288;
   static const double radius = 14;
@@ -147,6 +148,47 @@ class DesktopHomeTheme {
         color: brand,
         linearTrackColor: outline,
         circularTrackColor: outline,
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: ButtonStyle(
+          minimumSize: const MaterialStatePropertyAll(Size(32, 32)),
+          padding: const MaterialStatePropertyAll(EdgeInsets.all(7)),
+          foregroundColor: MaterialStateProperty.resolveWith((states) {
+            if (states.contains(MaterialState.disabled)) {
+              return secondary.withOpacity(0.38);
+            }
+            return secondary;
+          }),
+          overlayColor: MaterialStatePropertyAll(brand.withOpacity(0.08)),
+          shape: MaterialStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+      ),
+      tooltipTheme: TooltipThemeData(
+        waitDuration: const Duration(milliseconds: 450),
+        showDuration: const Duration(seconds: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: isDark(context)
+              ? const Color(0xFF303744)
+              : const Color(0xFF172033),
+          borderRadius: BorderRadius.circular(7),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x26000000),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        textStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(

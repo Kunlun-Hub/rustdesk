@@ -330,8 +330,8 @@ class _ToolbarTheme {
   static const Color inactiveColor = Color(0xFF7A8596);
   static const Color hoverInactiveColor = DesktopHomeTheme.brand;
 
-  static const Color redColor = Colors.redAccent;
-  static const Color hoverRedColor = Colors.red;
+  static const Color redColor = DesktopHomeTheme.danger;
+  static const Color hoverRedColor = DesktopHomeTheme.danger;
   // kMinInteractiveDimension
   static const double height = 20.0;
   static const double dividerHeight = 12.0;
@@ -933,8 +933,12 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
           minimumSize: const MaterialStatePropertyAll(Size(150, 34)),
           padding: const MaterialStatePropertyAll(
               EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-          foregroundColor:
-              MaterialStatePropertyAll(DesktopHomeTheme.textPrimary(context)),
+          foregroundColor: MaterialStateProperty.resolveWith((states) {
+            if (states.contains(MaterialState.disabled)) {
+              return DesktopHomeTheme.textSecondary(context).withOpacity(0.42);
+            }
+            return DesktopHomeTheme.textPrimary(context);
+          }),
           overlayColor: MaterialStatePropertyAll(
               DesktopHomeTheme.brand.withOpacity(0.08)),
           textStyle: const MaterialStatePropertyAll(
@@ -949,6 +953,7 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
         space: _ToolbarTheme.dividerSpaceToAction,
         color: _ToolbarTheme.dividerColor(context),
       ),
+      tooltipTheme: DesktopHomeTheme.settingsTheme(context).tooltipTheme,
       menuBarTheme: MenuBarThemeData(
           style: MenuStyle(
         padding: const MaterialStatePropertyAll(EdgeInsets.zero),
@@ -3183,14 +3188,26 @@ class _IconMenuButtonState extends State<_IconMenuButton> {
   @override
   Widget build(BuildContext context) {
     assert(widget.assetName != null || widget.icon != null);
-    final icon = widget.icon ??
-        SvgPicture.asset(
-          widget.assetName!,
-          colorFilter: ColorFilter.mode(
-              hover ? widget.hoverColor : widget.color, BlendMode.srcIn),
-          width: _ToolbarTheme.iconSize,
-          height: _ToolbarTheme.iconSize,
-        );
+    final enabled = widget.onPressed != null;
+    final idleColor = enabled
+        ? widget.color
+        : DesktopHomeTheme.textSecondary(context).withOpacity(0.38);
+    final icon = widget.icon != null
+        ? IconTheme.merge(
+            data: IconThemeData(
+              color: hover && enabled ? widget.hoverColor : idleColor,
+              size: _ToolbarTheme.iconSize,
+            ),
+            child: widget.icon!,
+          )
+        : SvgPicture.asset(
+            widget.assetName!,
+            colorFilter: ColorFilter.mode(
+                hover && enabled ? widget.hoverColor : idleColor,
+                BlendMode.srcIn),
+            width: _ToolbarTheme.iconSize,
+            height: _ToolbarTheme.iconSize,
+          );
     var button = SizedBox(
       width: widget.width ?? _ToolbarTheme.buttonSize,
       height: _ToolbarTheme.buttonSize,
@@ -3200,23 +3217,20 @@ class _IconMenuButtonState extends State<_IconMenuButton> {
               padding: MaterialStatePropertyAll(EdgeInsets.zero),
               overlayColor: MaterialStatePropertyAll(Colors.transparent)),
           onHover: (value) => setState(() {
-                hover = value;
+                hover = enabled && value;
               }),
           onPressed: widget.onPressed,
-          child: Tooltip(
-            message: translate(widget.tooltip),
-            child: Material(
-                type: MaterialType.transparency,
-                child: Ink(
-                    decoration: BoxDecoration(
-                      borderRadius:
-                          BorderRadius.circular(_ToolbarTheme.iconRadius),
-                      color: hover
-                          ? widget.hoverColor.withOpacity(0.12)
-                          : Colors.transparent,
-                    ),
-                    child: Center(child: icon))),
-          )),
+          child: Material(
+              type: MaterialType.transparency,
+              child: Ink(
+                  decoration: BoxDecoration(
+                    borderRadius:
+                        BorderRadius.circular(_ToolbarTheme.iconRadius),
+                    color: hover
+                        ? widget.hoverColor.withOpacity(0.12)
+                        : Colors.transparent,
+                  ),
+                  child: Center(child: icon)))),
     ).marginSymmetric(
         horizontal: widget.hMargin ?? _ToolbarTheme.buttonHMargin,
         vertical: widget.vMargin ?? _ToolbarTheme.buttonVMargin);
