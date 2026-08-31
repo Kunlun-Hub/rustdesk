@@ -2821,7 +2821,7 @@ Widget _Radio<T>(BuildContext context,
         _SettingRadio<T>(
             value: value, groupValue: groupValue, onChanged: onChange2),
         Expanded(
-          child: Text(translate(label),
+          child: Text(_desktopSettingLabel(label),
                   overflow: autoNewLine ? null : TextOverflow.ellipsis,
                   style: TextStyle(
                       fontSize: _kContentFontSize,
@@ -2831,6 +2831,17 @@ Widget _Radio<T>(BuildContext context,
       ],
     ),
   ).marginOnly(left: _kRadioLeftMargin);
+}
+
+String _desktopSettingLabel(String key) {
+  final translated = translate(key);
+  if (translated != key) return translated;
+  return const {
+        'ScrollAuto': 'Automatic scrolling',
+        'Scrollbar': 'Scroll bar',
+        'ScrollEdge': 'Edge scrolling',
+      }[key] ??
+      translated;
 }
 
 class WaylandCard extends StatefulWidget {
