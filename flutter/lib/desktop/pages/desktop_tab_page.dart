@@ -97,6 +97,7 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
             backgroundColor: Theme.of(context).colorScheme.background,
             body: DesktopTab(
               controller: tabController,
+              showMaximize: false,
               hideTabStrip: !bind.isIncomingOnly(),
               pageViewBuilder: bind.isIncomingOnly()
                   ? null

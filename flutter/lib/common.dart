@@ -1925,13 +1925,9 @@ Future<void> saveWindowPosition(WindowType type,
 
   switch (type) {
     case WindowType.Main:
-      // Checking `bind.isIncomingOnly()` is a simple workaround for MacOS.
-      // `await windowManager.isMaximized()` will always return true
-      // if is not resizable. The reason is unknown.
-      //
-      // `setResizable(!bind.isIncomingOnly());` in main.dart
-      isMaximized =
-          bind.isIncomingOnly() ? false : await windowManager.isMaximized();
+      // The main dashboard is fixed-size and cannot be maximized. Persisting
+      // false also clears maximized state saved by older versions.
+      isMaximized = false;
       if (isFullscreen || isMaximized) {
         setPreFrame();
       } else {
@@ -2221,6 +2217,9 @@ Future<bool> restoreWindowPosition(WindowType type,
 
   switch (type) {
     case WindowType.Main:
+      if (await windowManager.isMaximized()) {
+        await windowManager.unmaximize();
+      }
       restorePos() async {
         if (offsetLeftTop == null) {
           await windowManager.center();
@@ -2229,35 +2228,27 @@ Future<bool> restoreWindowPosition(WindowType type,
               ignoreDevicePixelRatio: _ignoreDevicePixelRatio);
         }
       }
-      if (lpos.isMaximized == true) {
+      // Never restore a maximized main-window state. Remote and utility
+      // windows continue through the default branch below unchanged.
+      final storeSize = !bind.isIncomingOnly() || bind.isOutgoingOnly();
+      if (isWindows) {
+        if (storeSize) {
+          // Set size before position to avoid DPI-dependent size drift across
+          // monitors with different scale factors.
+          await windowManager.setSize(size,
+              ignoreDevicePixelRatio: _ignoreDevicePixelRatio);
+        }
         await restorePos();
-        if (!(bind.isIncomingOnly() || bind.isOutgoingOnly())) {
-          await windowManager.maximize();
+        if (storeSize) {
+          await windowManager.setSize(size,
+              ignoreDevicePixelRatio: _ignoreDevicePixelRatio);
         }
       } else {
-        final storeSize = !bind.isIncomingOnly() || bind.isOutgoingOnly();
-        if (isWindows) {
-          if (storeSize) {
-            // We need to set the window size first to avoid the incorrect size in some special cases.
-            // E.g. There are two monitors, the left one is 100% DPI and the right one is 175% DPI.
-            // The window belongs to the left monitor, but if it is moved a little to the right, it will belong to the right monitor.
-            // After restoring, the size will be incorrect.
-            // See known issue in https://github.com/rustdesk/rustdesk/pull/9840
-            await windowManager.setSize(size,
-                ignoreDevicePixelRatio: _ignoreDevicePixelRatio);
-          }
-          await restorePos();
-          if (storeSize) {
-            await windowManager.setSize(size,
-                ignoreDevicePixelRatio: _ignoreDevicePixelRatio);
-          }
-        } else {
-          if (storeSize) {
-            await windowManager.setSize(size,
-                ignoreDevicePixelRatio: _ignoreDevicePixelRatio);
-          }
-          await restorePos();
+        if (storeSize) {
+          await windowManager.setSize(size,
+              ignoreDevicePixelRatio: _ignoreDevicePixelRatio);
         }
+        await restorePos();
       }
       return true;
     default:
