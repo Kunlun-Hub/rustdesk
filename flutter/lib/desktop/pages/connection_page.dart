@@ -413,42 +413,56 @@ class _ConnectionPageState extends State<ConnectionPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: DesktopHomeTheme.brand.withOpacity(0.10),
-                    borderRadius: BorderRadius.circular(9),
+            if (!compact)
+              Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: DesktopHomeTheme.brand.withOpacity(0.10),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: const Icon(Icons.desktop_windows_outlined,
+                        size: 18, color: DesktopHomeTheme.brand),
                   ),
-                  child: const Icon(Icons.desktop_windows_outlined,
-                      size: 18, color: DesktopHomeTheme.brand),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        translate('Control Remote Desktop'),
-                        style: TextStyle(
-                          color: DesktopHomeTheme.textPrimary(context),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          translate('Control Remote Desktop'),
+                          style: TextStyle(
+                            color: DesktopHomeTheme.textPrimary(context),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(translate('Remote ID'),
-                          style: DesktopHomeTheme.caption(context)),
-                    ],
+                        const SizedBox(height: 2),
+                        Text(translate('Remote ID'),
+                            style: DesktopHomeTheme.caption(context)),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            SizedBox(height: compact ? 8 : 13),
+                ],
+              ),
+            if (!compact) const SizedBox(height: 13),
             Row(
               children: [
+                if (compact) ...[
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: DesktopHomeTheme.brand.withOpacity(0.10),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: const Icon(Icons.desktop_windows_outlined,
+                        size: 18, color: DesktopHomeTheme.brand),
+                  ),
+                  const SizedBox(width: 10),
+                ],
                 Expanded(
                     child: RawAutocomplete<Peer>(
                   optionsBuilder: (TextEditingValue textEditingValue) {
@@ -626,116 +640,180 @@ class _ConnectionPageState extends State<ConnectionPage>
                     );
                   },
                 )),
+                if (compact) ...[
+                  const SizedBox(width: 10),
+                  _buildCompactConnectActions(context),
+                ],
               ],
             ),
-            Padding(
-              padding: EdgeInsets.only(top: compact ? 8 : 12),
-              child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                SizedBox(
-                  height: compact ? 34 : 38,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      onConnect();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                            DesktopHomeTheme.controlRadius),
+            if (!compact)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  SizedBox(
+                    height: compact ? 34 : 38,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        onConnect();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                              DesktopHomeTheme.controlRadius),
+                        ),
+                      ),
+                      child: Text(translate('Connect'),
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    height: compact ? 34 : 38,
+                    width: compact ? 34 : 38,
+                    decoration: BoxDecoration(
+                      color: DesktopHomeTheme.surfaceMuted(context),
+                      border:
+                          Border.all(color: DesktopHomeTheme.border(context)),
+                      borderRadius:
+                          BorderRadius.circular(DesktopHomeTheme.controlRadius),
+                    ),
+                    child: Center(
+                      child: StatefulBuilder(
+                        builder: (context, setState) {
+                          var offset = Offset(0, 0);
+                          return Obx(() => InkWell(
+                                child: _menuOpen.value
+                                    ? Transform.rotate(
+                                        angle: pi,
+                                        child: Icon(IconFont.more, size: 14),
+                                      )
+                                    : Icon(IconFont.more, size: 14),
+                                onTapDown: (e) {
+                                  offset = e.globalPosition;
+                                },
+                                onTap: () async {
+                                  _menuOpen.value = true;
+                                  final x = offset.dx;
+                                  final y = offset.dy;
+                                  await mod_menu
+                                      .showMenu(
+                                    context: context,
+                                    position: RelativeRect.fromLTRB(x, y, x, y),
+                                    items: [
+                                      (
+                                        'Transfer file',
+                                        () => onConnect(isFileTransfer: true)
+                                      ),
+                                      (
+                                        'View camera',
+                                        () => onConnect(isViewCamera: true)
+                                      ),
+                                      (
+                                        '${translate('Terminal')} (beta)',
+                                        () => onConnect(isTerminal: true)
+                                      ),
+                                    ]
+                                        .map((e) => MenuEntryButton<String>(
+                                              childBuilder:
+                                                  (TextStyle? style) => Text(
+                                                translate(e.$1),
+                                                style: style,
+                                              ),
+                                              proc: () => e.$2(),
+                                              padding: EdgeInsets.symmetric(
+                                                  horizontal:
+                                                      kDesktopMenuPadding.left),
+                                              dismissOnClicked: true,
+                                            ))
+                                        .map((e) => e.build(
+                                            context,
+                                            const MenuConfig(
+                                                commonColor:
+                                                    CustomPopupMenuTheme
+                                                        .commonColor,
+                                                height:
+                                                    CustomPopupMenuTheme.height,
+                                                dividerHeight:
+                                                    CustomPopupMenuTheme
+                                                        .dividerHeight)))
+                                        .expand((i) => i)
+                                        .toList(),
+                                    elevation: 8,
+                                  )
+                                      .then((_) {
+                                    _menuOpen.value = false;
+                                  });
+                                },
+                              ));
+                        },
                       ),
                     ),
-                    child: Text(translate('Connect'),
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  height: compact ? 34 : 38,
-                  width: compact ? 34 : 38,
-                  decoration: BoxDecoration(
-                    color: DesktopHomeTheme.surfaceMuted(context),
-                    border: Border.all(color: DesktopHomeTheme.border(context)),
-                    borderRadius:
-                        BorderRadius.circular(DesktopHomeTheme.controlRadius),
-                  ),
-                  child: Center(
-                    child: StatefulBuilder(
-                      builder: (context, setState) {
-                        var offset = Offset(0, 0);
-                        return Obx(() => InkWell(
-                              child: _menuOpen.value
-                                  ? Transform.rotate(
-                                      angle: pi,
-                                      child: Icon(IconFont.more, size: 14),
-                                    )
-                                  : Icon(IconFont.more, size: 14),
-                              onTapDown: (e) {
-                                offset = e.globalPosition;
-                              },
-                              onTap: () async {
-                                _menuOpen.value = true;
-                                final x = offset.dx;
-                                final y = offset.dy;
-                                await mod_menu
-                                    .showMenu(
-                                  context: context,
-                                  position: RelativeRect.fromLTRB(x, y, x, y),
-                                  items: [
-                                    (
-                                      'Transfer file',
-                                      () => onConnect(isFileTransfer: true)
-                                    ),
-                                    (
-                                      'View camera',
-                                      () => onConnect(isViewCamera: true)
-                                    ),
-                                    (
-                                      '${translate('Terminal')} (beta)',
-                                      () => onConnect(isTerminal: true)
-                                    ),
-                                  ]
-                                      .map((e) => MenuEntryButton<String>(
-                                            childBuilder: (TextStyle? style) =>
-                                                Text(
-                                              translate(e.$1),
-                                              style: style,
-                                            ),
-                                            proc: () => e.$2(),
-                                            padding: EdgeInsets.symmetric(
-                                                horizontal:
-                                                    kDesktopMenuPadding.left),
-                                            dismissOnClicked: true,
-                                          ))
-                                      .map((e) => e.build(
-                                          context,
-                                          const MenuConfig(
-                                              commonColor: CustomPopupMenuTheme
-                                                  .commonColor,
-                                              height:
-                                                  CustomPopupMenuTheme.height,
-                                              dividerHeight:
-                                                  CustomPopupMenuTheme
-                                                      .dividerHeight)))
-                                      .expand((i) => i)
-                                      .toList(),
-                                  elevation: 8,
-                                )
-                                    .then((_) {
-                                  _menuOpen.value = false;
-                                });
-                              },
-                            ));
-                      },
-                    ),
-                  ),
-                ),
-              ]),
-            ),
+                ]),
+              ),
           ],
         ),
       ),
     );
     return w;
+  }
+
+  Widget _buildCompactConnectActions(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: 38,
+          child: ElevatedButton(
+            onPressed: onConnect,
+            style: ElevatedButton.styleFrom(
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              shape: RoundedRectangleBorder(
+                borderRadius:
+                    BorderRadius.circular(DesktopHomeTheme.controlRadius),
+              ),
+            ),
+            child: Text(translate('Connect'),
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ),
+        const SizedBox(width: 7),
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: DesktopHomeTheme.surfaceMuted(context),
+            border: Border.all(color: DesktopHomeTheme.border(context)),
+            borderRadius: BorderRadius.circular(DesktopHomeTheme.controlRadius),
+          ),
+          child: PopupMenuButton<String>(
+            tooltip: translate('More'),
+            padding: EdgeInsets.zero,
+            icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+            onSelected: (value) {
+              if (value == 'file') {
+                onConnect(isFileTransfer: true);
+              } else if (value == 'camera') {
+                onConnect(isViewCamera: true);
+              } else if (value == 'terminal') {
+                onConnect(isTerminal: true);
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                  value: 'file', child: Text(translate('Transfer file'))),
+              PopupMenuItem(
+                  value: 'camera', child: Text(translate('View camera'))),
+              PopupMenuItem(
+                  value: 'terminal',
+                  child: Text('${translate('Terminal')} (beta)')),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
