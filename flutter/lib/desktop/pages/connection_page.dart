@@ -368,7 +368,7 @@ class _ConnectionPageState extends State<ConnectionPage>
             ),
           ),
         ),
-        if (!isOutgoingOnly)
+        if (!isOutgoingOnly && !widget.compact)
           Container(
             margin: EdgeInsets.fromLTRB(
                 widget.compact ? 22 : 28,

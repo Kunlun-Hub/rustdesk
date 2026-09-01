@@ -6,6 +6,7 @@ import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
+import 'package:flutter_hbb/desktop/widgets/sidebar_service_status.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/peer_tab_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
@@ -238,6 +239,8 @@ class _DesktopPrimaryNavigation extends StatelessWidget {
               );
             }),
           const Spacer(),
+          SidebarServiceStatus(compact: compact),
+          const SizedBox(height: 2),
           if (!bind.isDisableSettings())
             Obx(() {
               final selectedKey = controller.state.value.selectedTabInfo.key;
