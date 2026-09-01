@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/custom_password.dart';
+import 'package:flutter_hbb/common/widgets/peer_tab_page.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/connection_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
@@ -14,6 +15,7 @@ import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
 import 'package:flutter_hbb/desktop/theme/desktop_home_theme.dart';
 import 'package:flutter_hbb/desktop/widgets/update_progress.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
+import 'package:flutter_hbb/models/peer_tab_model.dart';
 import 'package:flutter_hbb/models/server_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
@@ -94,13 +96,83 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     return _buildBlock(
       child: ColoredBox(
         color: DesktopHomeTheme.canvas(context),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            buildLeftPane(context),
-            if (!isIncomingOnly) Expanded(child: buildRightPane(context)),
-          ],
+        child: isIncomingOnly
+            ? buildLeftPane(context)
+            : AnimatedBuilder(
+                animation: gFFI.peerTabModel,
+                builder: (context, _) {
+                  final tab = gFFI.peerTabModel.currentTab;
+                  if (tab == PeerTabIndex.ab.index ||
+                      tab == PeerTabIndex.group.index) {
+                    return _buildStandalonePeerPage(context, tab);
+                  }
+                  return _buildRemoteControlPage(context);
+                },
+              ),
+      ),
+    );
+  }
+
+  Widget _buildRemoteControlPage(BuildContext context) {
+    return Column(
+      children: [
+        ChangeNotifierProvider.value(
+          value: gFFI.serverModel,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(22, 14, 22, 12),
+            color: DesktopHomeTheme.navigation(context),
+            child: Row(
+              children: [
+                Expanded(
+                  child: buildIDBoard(
+                    context,
+                    margin: EdgeInsets.zero,
+                    compact: true,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: buildPasswordBoard(
+                    context,
+                    margin: EdgeInsets.zero,
+                    compact: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
+        Expanded(child: buildRightPane(context)),
+      ],
+    );
+  }
+
+  Widget _buildStandalonePeerPage(BuildContext context, int tab) {
+    final title = tab == PeerTabIndex.ab.index
+        ? translate('Address book')
+        : translate('Accessible devices');
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 18, 22, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: TextStyle(
+                color: DesktopHomeTheme.textPrimary(context),
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+              )),
+          const SizedBox(height: 14),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(DesktopHomeTheme.radius),
+              child: ColoredBox(
+                color: DesktopHomeTheme.surface(context),
+                child: const PeerTabPage(showTabSwitcher: false),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -186,7 +258,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   buildRightPane(BuildContext context) {
     return ColoredBox(
       color: DesktopHomeTheme.canvas(context),
-      child: const ConnectionPage(),
+      child: const ConnectionPage(compact: true),
     );
   }
 
@@ -221,11 +293,13 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     );
   }
 
-  buildIDBoard(BuildContext context) {
+  buildIDBoard(BuildContext context,
+      {EdgeInsetsGeometry? margin, bool compact = false}) {
     final model = gFFI.serverModel;
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-      padding: const EdgeInsets.fromLTRB(16, 14, 12, 13),
+      margin: margin ?? const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      padding:
+          EdgeInsets.fromLTRB(16, compact ? 10 : 14, 12, compact ? 10 : 13),
       decoration: DesktopHomeTheme.card(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,7 +330,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                   style: TextStyle(
                     color: DesktopHomeTheme.textPrimary(context),
                     fontFamily: 'WorkSans',
-                    fontSize: 23,
+                    fontSize: compact ? 21 : 23,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.8,
                   ),
@@ -304,22 +378,26 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     );
   }
 
-  buildPasswordBoard(BuildContext context) {
+  buildPasswordBoard(BuildContext context,
+      {EdgeInsetsGeometry? margin, bool compact = false}) {
     return ChangeNotifierProvider.value(
         value: gFFI.serverModel,
         child: Consumer<ServerModel>(
           builder: (context, model, child) {
-            return buildPasswordBoard2(context, model);
+            return buildPasswordBoard2(context, model,
+                margin: margin, compact: compact);
           },
         ));
   }
 
-  buildPasswordBoard2(BuildContext context, ServerModel model) {
+  buildPasswordBoard2(BuildContext context, ServerModel model,
+      {EdgeInsetsGeometry? margin, bool compact = false}) {
     final showOneTime = model.approveMode != 'click' &&
         model.verificationMethod != kUsePermanentPassword;
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-      padding: const EdgeInsets.fromLTRB(16, 14, 12, 13),
+      margin: margin ?? const EdgeInsets.fromLTRB(20, 10, 20, 12),
+      padding:
+          EdgeInsets.fromLTRB(16, compact ? 10 : 14, 12, compact ? 10 : 13),
       decoration: DesktopHomeTheme.card(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

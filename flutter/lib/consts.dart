@@ -9,7 +9,7 @@ const int kAllVirtualDisplay = -1;
 
 const double kDesktopRemoteTabBarHeight = 28.0;
 const double kDesktopMainTabBarHeight = 40.0;
-const Size kDesktopMainWindowSize = Size(1280, 760);
+const Size kDesktopMainWindowSize = Size(1000, 640);
 const int kInvalidWindowId = -1;
 const int kMainWindowId = 0;
 

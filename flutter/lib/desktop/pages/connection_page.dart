@@ -196,7 +196,9 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
 
 /// Connection page for connecting to a remote peer.
 class ConnectionPage extends StatefulWidget {
-  const ConnectionPage({Key? key}) : super(key: key);
+  const ConnectionPage({Key? key, this.compact = false}) : super(key: key);
+
+  final bool compact;
 
   @override
   State<ConnectionPage> createState() => _ConnectionPageState();
@@ -315,7 +317,8 @@ class _ConnectionPageState extends State<ConnectionPage>
       children: [
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(28, 24, 28, 0),
+            padding: EdgeInsets.fromLTRB(widget.compact ? 22 : 28,
+                widget.compact ? 12 : 24, widget.compact ? 22 : 28, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -323,22 +326,24 @@ class _ConnectionPageState extends State<ConnectionPage>
                   translate('Remote Control'),
                   style: TextStyle(
                     color: DesktopHomeTheme.textPrimary(context),
-                    fontSize: 22,
+                    fontSize: widget.compact ? 20 : 22,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.3,
                   ),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  translate('desk_tip'),
-                  style: TextStyle(
-                    color: DesktopHomeTheme.textSecondary(context),
-                    fontSize: 13,
+                if (!widget.compact) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    translate('desk_tip'),
+                    style: TextStyle(
+                      color: DesktopHomeTheme.textSecondary(context),
+                      fontSize: 13,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 18),
-                _buildRemoteIDTextField(context),
-                const SizedBox(height: 24),
+                ],
+                SizedBox(height: widget.compact ? 9 : 18),
+                _buildRemoteIDTextField(context, compact: widget.compact),
+                SizedBox(height: widget.compact ? 12 : 24),
                 Row(
                   children: [
                     Text(translate('Devices'),
@@ -348,7 +353,7 @@ class _ConnectionPageState extends State<ConnectionPage>
                         style: DesktopHomeTheme.caption(context)),
                   ],
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: widget.compact ? 6 : 10),
                 Expanded(
                   child: ClipRRect(
                     borderRadius:
@@ -365,7 +370,11 @@ class _ConnectionPageState extends State<ConnectionPage>
         ),
         if (!isOutgoingOnly)
           Container(
-            margin: const EdgeInsets.fromLTRB(28, 12, 28, 14),
+            margin: EdgeInsets.fromLTRB(
+                widget.compact ? 22 : 28,
+                widget.compact ? 7 : 12,
+                widget.compact ? 22 : 28,
+                widget.compact ? 9 : 14),
             padding: const EdgeInsets.symmetric(horizontal: 2),
             decoration: BoxDecoration(
               color: DesktopHomeTheme.surface(context),
@@ -394,10 +403,11 @@ class _ConnectionPageState extends State<ConnectionPage>
 
   /// UI for the remote ID TextField.
   /// Search for a peer.
-  Widget _buildRemoteIDTextField(BuildContext context) {
+  Widget _buildRemoteIDTextField(BuildContext context, {bool compact = false}) {
     var w = Container(
       constraints: const BoxConstraints(maxWidth: 720),
-      padding: const EdgeInsets.fromLTRB(18, 16, 16, 16),
+      padding:
+          EdgeInsets.fromLTRB(16, compact ? 11 : 16, 14, compact ? 10 : 16),
       decoration: DesktopHomeTheme.card(context),
       child: Ink(
         child: Column(
@@ -436,7 +446,7 @@ class _ConnectionPageState extends State<ConnectionPage>
                 ),
               ],
             ),
-            const SizedBox(height: 13),
+            SizedBox(height: compact ? 8 : 13),
             Row(
               children: [
                 Expanded(
@@ -619,10 +629,10 @@ class _ConnectionPageState extends State<ConnectionPage>
               ],
             ),
             Padding(
-              padding: const EdgeInsets.only(top: 12),
+              padding: EdgeInsets.only(top: compact ? 8 : 12),
               child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                 SizedBox(
-                  height: 38,
+                  height: compact ? 34 : 38,
                   child: ElevatedButton(
                     onPressed: () {
                       onConnect();
@@ -641,8 +651,8 @@ class _ConnectionPageState extends State<ConnectionPage>
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  height: 38,
-                  width: 38,
+                  height: compact ? 34 : 38,
+                  width: compact ? 34 : 38,
                   decoration: BoxDecoration(
                     color: DesktopHomeTheme.surfaceMuted(context),
                     border: Border.all(color: DesktopHomeTheme.border(context)),
