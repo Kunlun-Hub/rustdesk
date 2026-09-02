@@ -2320,7 +2320,7 @@ jobs:
           for name in appimage/rustdesk-${{ env.VERSION }}-*.AppImage; do
             base="${name##*/}"
             suffix="${base#rustdesk-${{ env.VERSION }}-}"
-            mv "$name" "appimage/desklink-${{ env.ARTIFACT_VERSION }}-${suffix}"
+            sudo mv "$name" "appimage/desklink-${{ env.ARTIFACT_VERSION }}-${suffix}"
           done
 
       - name: Publish appimage package
