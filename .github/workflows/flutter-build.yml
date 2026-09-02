@@ -1754,9 +1754,15 @@ jobs:
         if: matrix.job.arch == 'x86_64' && env.UPLOAD_ARTIFACT == 'true'
         shell: bash
         run: |
-          for name in res/rustdesk-${{ env.VERSION }}*.zst; do
-            mv "$name" "res/desklink-${name##*/rustdesk-}"
-          done
+          shopt -s nullglob
+          packages=(rustdesk-${{ env.VERSION }}*.zst res/rustdesk-${{ env.VERSION }}*.zst)
+          if [ "${#packages[@]}" -ne 1 ]; then
+            echo "::error::expected one Arch package, found ${#packages[@]}: ${packages[*]-none}"
+            exit 1
+          fi
+          name="${packages[0]}"
+          base="${name##*/}"
+          mv "$name" "desklink-${base#rustdesk-}"
 
       - name: Publish archlinux package
         if: matrix.job.arch == 'x86_64' && env.UPLOAD_ARTIFACT == 'true'
@@ -1765,7 +1771,7 @@ jobs:
           prerelease: true
           tag_name: ${{ env.TAG_NAME }}
           files: |
-            res/desklink-${{ env.VERSION }}*.zst
+            desklink-${{ env.VERSION }}*.zst
 
   # Same build as build-rustdesk-linux x86_64 -- same vcpkg/ffmpeg, same ubuntu18.04 container, same
   # rust and flutter -- only with the drm feature on, so it ships as the separate
@@ -2310,7 +2316,8 @@ jobs:
         shell: bash
         run: |
           for name in appimage/rustdesk-${{ env.VERSION }}-*.AppImage; do
-            mv "$name" "appimage/desklink-${name##*/rustdesk-}"
+            base="${name##*/}"
+            mv "$name" "appimage/desklink-${base#rustdesk-}"
           done
 
       - name: Publish appimage package
