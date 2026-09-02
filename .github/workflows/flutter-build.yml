@@ -43,6 +43,7 @@ env:
   #  https://github.com/rustdesk/rustdesk/actions/runs/14414119794/job/40427970174
   # 2. Update the `VCPKG_COMMIT_ID` in `ci.yml` and `playground.yml`.
   VCPKG_COMMIT_ID: "9e593bb18ea69cc5095e012465dcd675a822ed0d"
+  AARCH64_VCPKG_COMMIT_ID: "b558d014078372de4dd1252dbbb1e252294e1b69"
   ARMV7_VCPKG_COMMIT_ID: "6f29f12e82a8293156836ad81cc9bf5af41fe836" # 2025.01.13, got "/opt/artifacts/vcpkg/vcpkg: No such file or directory" with latest version
   VERSION: "1.4.9"
   NDK_VERSION: "r28c"
@@ -1510,7 +1511,7 @@ jobs:
         uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11
         with:
           vcpkgDirectory: /opt/artifacts/vcpkg
-          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
+          vcpkgGitCommitId: ${{ matrix.job.arch == 'aarch64' && env.AARCH64_VCPKG_COMMIT_ID || env.VCPKG_COMMIT_ID }}
           doNotCache: false
 
       - name: Install vcpkg dependencies
