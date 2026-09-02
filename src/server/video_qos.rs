@@ -593,3 +593,28 @@ impl RttCalculator {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn custom_fps_respects_remote_decode_limit() {
+        let mut qos = VideoQoS::default();
+        qos.on_connection_open(1);
+        qos.user_custom_fps(1, 60);
+        assert_eq!(qos.highest_fps(), 60);
+
+        qos.user_auto_adjust_fps(1, 30);
+        assert_eq!(qos.highest_fps(), 30);
+    }
+
+    #[test]
+    fn manual_fps_can_raise_limit_to_120() {
+        let mut qos = VideoQoS::default();
+        qos.on_connection_open(1);
+        qos.user_custom_fps(1, 120);
+        qos.user_auto_adjust_fps(1, 120);
+        assert_eq!(qos.highest_fps(), 120);
+    }
+}

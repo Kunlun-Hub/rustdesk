@@ -2092,7 +2092,7 @@ pub fn create_symmetric_key_msg(their_pk_b: [u8; 32]) -> (Bytes, Bytes, secretbo
 
 #[inline]
 pub fn using_public_server() -> bool {
-    crate::get_custom_rendezvous_server(get_option("custom-rendezvous-server")).is_empty()
+    is_public(&Config::get_rendezvous_server())
 }
 
 pub struct ThrottledInterval {
@@ -2892,6 +2892,7 @@ mod tests {
         assert!(is_public("rustdesk.com/"));
         assert!(is_public("rustdesk.com:21117"));
         assert!(is_public("api.rustdesk.com:21117"));
+        assert!(!is_public(hbb_common::config::RENDEZVOUS_SERVERS[0]));
         assert!(!is_public("hello-rustdesk.com"));
         assert!(!is_public("api.rustdesk.com.evil.test"));
         assert!(!is_public("https://rustdesk.com@evil.test"));
