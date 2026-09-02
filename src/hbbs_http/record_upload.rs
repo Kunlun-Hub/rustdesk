@@ -8,6 +8,7 @@ use reqwest::blocking::Client;
 use scrap::record::RecordState;
 use serde::Deserialize;
 use serde_json::{json, Map};
+use sha2::{Digest, Sha256};
 use std::{
     fs::File,
     io::{prelude::*, SeekFrom},
@@ -176,6 +177,20 @@ struct RecordUploader {
     started_at: Instant,
 }
 impl RecordUploader {
+    fn file_sha256(&self) -> ResultType<String> {
+        let mut file = File::open(&self.filepath)?;
+        let mut hasher = Sha256::new();
+        let mut buffer = vec![0u8; 1024 * 1024];
+        loop {
+            let length = file.read(&mut buffer)?;
+            if length == 0 {
+                break;
+            }
+            hasher.update(&buffer[..length]);
+        }
+        Ok(hex::encode(hasher.finalize()))
+    }
+
     fn send_chunk(&self, offset: u64, body: Vec<u8>) -> ResultType<()> {
         let url = format!(
             "{}/api/recordings/{}/chunks",
@@ -318,7 +333,10 @@ impl RecordUploader {
                                 self.api_server, self.upload_id
                             ))
                             .header("X-Upload-Token", &self.upload_token)
-                            .json(&json!({"duration_ms": self.started_at.elapsed().as_millis() as u64}))
+                            .json(&json!({
+                                "duration_ms": self.started_at.elapsed().as_millis() as u64,
+                                "sha256": self.file_sha256()?,
+                            }))
                             .send()?
                             .error_for_status()?
                             .json::<Map<String, serde_json::Value>>()?;
