@@ -10,6 +10,7 @@ import 'package:flutter_hbb/desktop/widgets/sidebar_service_status.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/peer_tab_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
+import 'package:flutter_hbb/utils/multi_window_manager.dart';
 import 'package:get/get.dart';
 import 'package:window_manager/window_manager.dart';
 // import 'package:flutter/services.dart';
@@ -239,6 +240,14 @@ class _DesktopPrimaryNavigation extends StatelessWidget {
               );
             }),
           const Spacer(),
+          if (isWindows &&
+              !bind.isDisableInstallation() &&
+              !bind.mainIsInstalled())
+            _SidebarInstallPrompt(compact: compact),
+          if (isWindows &&
+              !bind.isDisableInstallation() &&
+              !bind.mainIsInstalled())
+            const SizedBox(height: 8),
           SidebarServiceStatus(compact: compact),
           const SizedBox(height: 2),
           if (!bind.isDisableSettings())
@@ -253,6 +262,85 @@ class _DesktopPrimaryNavigation extends StatelessWidget {
               );
             }),
           const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+}
+
+class _SidebarInstallPrompt extends StatelessWidget {
+  const _SidebarInstallPrompt({required this.compact});
+
+  final bool compact;
+
+  Future<void> _install() async {
+    await rustDeskWinManager.closeAllSubWindows();
+    bind.mainGotoInstall();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (compact) {
+      return Tooltip(
+        message: translate('Install'),
+        child: IconButton(
+          onPressed: _install,
+          icon: const Icon(Icons.download_for_offline_outlined),
+          color: DesktopHomeTheme.brand,
+        ),
+      );
+    }
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: DesktopHomeTheme.brand.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(DesktopHomeTheme.controlRadius),
+        border: Border.all(color: DesktopHomeTheme.brand.withOpacity(0.20)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.download_for_offline_outlined,
+                  size: 17, color: DesktopHomeTheme.brand),
+              const SizedBox(width: 7),
+              Text(
+                translate('Installation'),
+                style: TextStyle(
+                  color: DesktopHomeTheme.textPrimary(context),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            translate('install_tip'),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: DesktopHomeTheme.textSecondary(context),
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 9),
+          SizedBox(
+            width: double.infinity,
+            height: 30,
+            child: ElevatedButton.icon(
+              onPressed: _install,
+              icon: const Icon(Icons.install_desktop_outlined, size: 15),
+              label: Text(translate('Install')),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                textStyle: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ),
         ],
       ),
     );
