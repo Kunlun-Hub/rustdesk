@@ -2179,14 +2179,18 @@ jobs:
             mkdir -p /opt/artifacts
             pushd /opt/artifacts
             rm -rf vcpkg
-            git clone https://github.com/microsoft/vcpkg
+            mkdir vcpkg
             pushd vcpkg
+            git init
+            git remote add origin https://github.com/microsoft/vcpkg
             # build vcpkg helper executable with gcc-8 for arm-linux but use prebuilt one on x64-linux
             if [ "${{ matrix.job.vcpkg-triplet }}" = "arm-linux" ]; then
-              git reset --hard ${{ env.ARMV7_VCPKG_COMMIT_ID }}
+              git fetch --depth 1 origin ${{ env.ARMV7_VCPKG_COMMIT_ID }}
+              git checkout --detach FETCH_HEAD
               CC=/usr/bin/gcc-8 CXX=/usr/bin/g++-8 sh bootstrap-vcpkg.sh -disableMetrics
             else
-              git reset --hard ${{ env.VCPKG_COMMIT_ID }}
+              git fetch --depth 1 origin ${{ env.VCPKG_COMMIT_ID }}
+              git checkout --detach FETCH_HEAD
               sh bootstrap-vcpkg.sh -disableMetrics
             fi
             popd
