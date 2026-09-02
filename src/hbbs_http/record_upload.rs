@@ -18,7 +18,6 @@ use std::{
 
 const MAX_HEADER_LEN: usize = 1024;
 const SHOULD_SEND_TIME: Duration = Duration::from_secs(1);
-const SHOULD_SEND_SIZE: u64 = 1024 * 1024;
 const MIN_CHUNK_SIZE: u64 = 4 * 1024 * 1024;
 const MAX_CHUNK_SIZE: u64 = 8 * 1024 * 1024;
 const POLICY_CACHE_TIME: Duration = Duration::from_secs(30);
@@ -121,7 +120,7 @@ pub fn run(rx: Receiver<RecordState>) {
             upload_size: Default::default(),
             upload_id: Default::default(),
             upload_token: Default::default(),
-            chunk_size: SHOULD_SEND_SIZE * 8,
+            chunk_size: MAX_CHUNK_SIZE,
             initialized: false,
             running: Default::default(),
             last_send: Instant::now(),
@@ -329,7 +328,7 @@ impl RecordUploader {
                     if len <= self.upload_size {
                         return Ok(());
                     }
-                    if !flush && len - self.upload_size < SHOULD_SEND_SIZE {
+                    if !flush && len - self.upload_size < MIN_CHUNK_SIZE {
                         return Ok(());
                     }
                     let remaining = len - self.upload_size;
