@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Visual tokens for the RustDesk desktop home experience.
+/// Visual tokens for the DeskLink desktop experience.
 ///
 /// Keep these values local to the desktop shell while the refreshed visual
 /// language is rolled out. Remote-session windows and mobile screens continue

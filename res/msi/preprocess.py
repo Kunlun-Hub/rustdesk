@@ -26,18 +26,6 @@ g_arpsystemcomponent = {
         "t": "string",
         "v": "!(loc.AR_Comment)",
     },
-    "Contact": {
-        "msi": "ARPCONTACT",
-        "v": "https://github.com/rustdesk/rustdesk",
-    },
-    "HelpLink": {
-        "msi": "ARPHELPLINK",
-        "v": "https://github.com/rustdesk/rustdesk/issues/",
-    },
-    "ReadMe": {
-        "msi": "ARPREADME",
-        "v": "https://github.com/rustdesk/rustdesk",
-    },
 }
 
 def default_revision_version():
@@ -74,7 +62,7 @@ def make_parser():
         help='Connection type, e.g. "incoming", "outgoing". Default is empty, means incoming-outgoing',
     )
     parser.add_argument(
-        "--app-name", type=str, default="RustDesk", help="The app name."
+        "--app-name", type=str, default="DeskLink", help="The app name."
     )
     parser.add_argument(
         "-v", "--version", type=str, default="", help="The app version."
@@ -86,7 +74,7 @@ def make_parser():
         "-m",
         "--manufacturer",
         type=str,
-        default="Purslane Tech Pte. Ltd.",
+        default="DeskLink",
         help="The app manufacturer.",
     )
     return parser
@@ -197,6 +185,9 @@ def replace_app_name_in_custom_actions(app_name):
             lines = f.readlines()
         for i, line in enumerate(lines):
             line = re.sub(r"\bRustDesk\b", app_name, line)
+            # The signed printer driver's internal model name is fixed by its
+            # INF. Keep this technical identifier while branding the printer,
+            # port, shortcuts and installer as DeskLink.
             line = line.replace(f"{app_name} v4 Printer Driver", "RustDesk v4 Printer Driver")
             lines[i] = line
         with open(file_path, "w", encoding="utf-8") as f:

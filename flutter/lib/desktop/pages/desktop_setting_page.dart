@@ -21,7 +21,6 @@ import 'package:flutter_hbb/models/state_model.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../common/widgets/dialog.dart';
 import '../../common/widgets/login.dart';
@@ -2485,103 +2484,86 @@ class _AboutState extends State<_About> {
         );
       }
 
-      Widget linkButton(String label, String url, IconData icon) {
-        return OutlinedButton.icon(
-          onPressed: () => launchUrlString(url),
-          icon: Icon(icon, size: 16),
-          label: Text(translate(label)),
-        );
-      }
-
       return SingleChildScrollView(
         controller: scrollController,
-        child: _Card(title: translate('About RustDesk'), children: [
-          Container(
-            margin: const EdgeInsets.only(left: _kContentHMargin),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+        child: _Card(
+            title: '${translate('About')} ${bind.mainGetAppNameSync()}',
+            children: [
+              Container(
+                margin: const EdgeInsets.only(left: _kContentHMargin),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      padding: const EdgeInsets.all(9),
-                      decoration: BoxDecoration(
-                        color: DesktopHomeTheme.brand.withOpacity(0.10),
-                        borderRadius: BorderRadius.circular(13),
-                      ),
-                      child: loadIcon(30),
-                    ),
-                    const SizedBox(width: 13),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            bind.mainGetAppNameSync(),
-                            style: TextStyle(
-                              color: DesktopHomeTheme.textPrimary(context),
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text('${translate('Version')} $version',
-                              style: DesktopHomeTheme.caption(context)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ).marginSymmetric(vertical: 8),
-                infoRow('Build Date', buildDate),
-                if (!isWeb) infoRow('Fingerprint', fingerprint),
-                infoRow('ID', myId),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    linkButton(
-                        'Privacy Statement',
-                        'https://rustdesk.com/privacy.html',
-                        Icons.shield_outlined),
-                    linkButton('Website', 'https://rustdesk.com',
-                        Icons.language_rounded),
-                  ],
-                ).marginOnly(top: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: DesktopHomeTheme.surfaceMuted(context),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: DesktopHomeTheme.border(context)),
-                  ),
-                  child: SelectionArea(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Row(
                       children: [
-                        Text(
-                          translate('Slogan_tip'),
-                          style: TextStyle(
-                            color: DesktopHomeTheme.textPrimary(context),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                        Container(
+                          width: 48,
+                          height: 48,
+                          padding: const EdgeInsets.all(9),
+                          decoration: BoxDecoration(
+                            color: DesktopHomeTheme.brand.withOpacity(0.10),
+                            borderRadius: BorderRadius.circular(13),
                           ),
+                          child: loadIcon(30),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Copyright © ${DateTime.now().year} Purslane Tech Pte. Ltd.${license.isEmpty ? '' : '\n$license'}',
-                          style: DesktopHomeTheme.caption(context),
+                        const SizedBox(width: 13),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                bind.mainGetAppNameSync(),
+                                style: TextStyle(
+                                  color: DesktopHomeTheme.textPrimary(context),
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text('${translate('Version')} $version',
+                                  style: DesktopHomeTheme.caption(context)),
+                            ],
+                          ),
                         ),
                       ],
-                    ),
-                  ),
-                ).marginOnly(top: 12, bottom: 2),
-              ],
-            ),
-          ),
-        ]),
+                    ).marginSymmetric(vertical: 8),
+                    infoRow('Build Date', buildDate),
+                    if (!isWeb) infoRow('Fingerprint', fingerprint),
+                    infoRow('ID', myId),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: DesktopHomeTheme.surfaceMuted(context),
+                        borderRadius: BorderRadius.circular(10),
+                        border:
+                            Border.all(color: DesktopHomeTheme.border(context)),
+                      ),
+                      child: SelectionArea(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${bind.mainGetAppNameSync()} ${translate('Remote Desktop')}',
+                              style: TextStyle(
+                                color: DesktopHomeTheme.textPrimary(context),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Copyright © ${DateTime.now().year} ${bind.mainGetAppNameSync()}.${license.isEmpty ? '' : '\n$license'}',
+                              style: DesktopHomeTheme.caption(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ).marginOnly(top: 12, bottom: 2),
+                  ],
+                ),
+              ),
+            ]),
       );
     });
   }

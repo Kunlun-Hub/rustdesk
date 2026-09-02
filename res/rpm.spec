@@ -1,17 +1,16 @@
 Name:       rustdesk
 Version:    1.4.9
 Release:    0
-Summary:    RPM package
+Summary:    DeskLink Remote Desktop
 License:    GPL-3.0
-URL:        https://rustdesk.com
-Vendor:     rustdesk <info@rustdesk.com>
+Vendor:     DeskLink
 Requires:   gtk3 libxcb libXfixes alsa-lib libva2 gstreamer1-plugins-base
 Recommends: libayatana-appindicator-gtk3 libxdo
 
 # https://docs.fedoraproject.org/en-US/packaging-guidelines/Scriptlets/
 
 %description
-The best open-source remote desktop client software, written in Rust.
+DeskLink remote desktop client.
 
 %prep
 # we have no source, so nothing here
