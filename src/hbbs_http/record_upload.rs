@@ -22,7 +22,7 @@ const SHOULD_SEND_SIZE: u64 = 1024 * 1024;
 const MIN_CHUNK_SIZE: u64 = 4 * 1024 * 1024;
 const MAX_CHUNK_SIZE: u64 = 8 * 1024 * 1024;
 const POLICY_CACHE_TIME: Duration = Duration::from_secs(30);
-const MAX_SEND_ATTEMPTS: usize = 3;
+const MAX_SEND_ATTEMPTS: usize = 5;
 
 lazy_static::lazy_static! {
     static ref ENABLE: Arc<Mutex<bool>> = Default::default();
@@ -122,6 +122,7 @@ pub fn run(rx: Receiver<RecordState>) {
             upload_id: Default::default(),
             upload_token: Default::default(),
             chunk_size: SHOULD_SEND_SIZE * 8,
+            initialized: false,
             running: Default::default(),
             last_send: Instant::now(),
             started_at: Instant::now(),
@@ -172,11 +173,16 @@ struct RecordUploader {
     upload_id: String,
     upload_token: String,
     chunk_size: u64,
+    initialized: bool,
     running: bool,
     last_send: Instant,
     started_at: Instant,
 }
 impl RecordUploader {
+    fn retry_delay(attempt: usize) {
+        std::thread::sleep(Duration::from_secs(1 << attempt.min(3)));
+    }
+
     fn file_sha256(&self) -> ResultType<String> {
         let mut file = File::open(&self.filepath)?;
         let mut hasher = Sha256::new();
@@ -222,10 +228,68 @@ impl RecordUploader {
                 Err(err) => last_error = err.to_string(),
             }
             if attempt + 1 < MAX_SEND_ATTEMPTS {
-                std::thread::sleep(Duration::from_millis(250 * (attempt as u64 + 1)));
+                Self::retry_delay(attempt);
             }
         }
         bail!("chunk upload failed: {last_error}")
+    }
+
+    fn initialize_upload(&mut self) -> ResultType<()> {
+        if self.initialized {
+            return Ok(());
+        }
+        let codec = self
+            .filename
+            .trim_end_matches(".webm")
+            .trim_end_matches(".mp4")
+            .rsplit('_')
+            .next()
+            .unwrap_or_default();
+        let (from_peer, from_name, session_id) =
+            crate::Connection::recording_context().unwrap_or_default();
+        let body = json!({
+            "upload_id": self.upload_id,
+            "upload_token": self.upload_token,
+            "peer_id": Config::get_id(),
+            "uuid": crate::encode64(hbb_common::get_uuid()),
+            "from_peer": from_peer,
+            "from_name": from_name,
+            "session_id": session_id,
+            "filename": self.filename,
+            "codec": codec,
+            "started_at": SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs(),
+        });
+        let url = format!("{}/api/recordings/init", self.api_server);
+        let mut last_error = String::new();
+        for attempt in 0..MAX_SEND_ATTEMPTS {
+            match self
+                .client
+                .post(&url)
+                .json(&body)
+                .send()
+                .and_then(|response| response.error_for_status())
+            {
+                Ok(response) => match response.json::<ApiEnvelope<UploadInitResponse>>() {
+                    Ok(response) if response.code == 0 => {
+                        self.upload_id = response.data.upload_id;
+                        self.upload_token = response.data.upload_token;
+                        self.chunk_size = response
+                            .data
+                            .chunk_size
+                            .clamp(MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
+                        self.initialized = true;
+                        return Ok(());
+                    }
+                    Ok(response) => last_error = response.message,
+                    Err(err) => last_error = err.to_string(),
+                },
+                Err(err) => last_error = err.to_string(),
+            }
+            if attempt + 1 < MAX_SEND_ATTEMPTS {
+                Self::retry_delay(attempt);
+            }
+        }
+        bail!("recording upload initialization failed: {last_error}")
     }
 
     fn handle_new_file(&mut self, filepath: String) -> ResultType<()> {
@@ -235,42 +299,17 @@ impl RecordUploader {
                     self.filename = filename.clone();
                     self.filepath = filepath.clone();
                     self.upload_size = 0;
+                    self.upload_id = uuid::Uuid::new_v4().to_string();
+                    self.upload_token = format!(
+                        "{}{}",
+                        uuid::Uuid::new_v4().simple(),
+                        uuid::Uuid::new_v4().simple()
+                    );
+                    self.initialized = false;
+                    self.running = true;
                     self.started_at = Instant::now();
                     self.last_send = Instant::now();
-                    let codec = filename
-                        .trim_end_matches(".webm")
-                        .trim_end_matches(".mp4")
-                        .rsplit('_')
-                        .next()
-                        .unwrap_or_default();
-                    let (from_peer, from_name, session_id) =
-                        crate::Connection::recording_context().unwrap_or_default();
-                    let response = self.client
-                        .post(format!("{}/api/recordings/init", self.api_server))
-                        .json(&json!({
-                            "peer_id": Config::get_id(),
-                            "uuid": crate::encode64(hbb_common::get_uuid()),
-                            "from_peer": from_peer,
-                            "from_name": from_name,
-                            "session_id": session_id,
-                            "filename": filename,
-                            "codec": codec,
-                            "started_at": SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs(),
-                        }))
-                        .send()?
-                        .error_for_status()?
-                        .json::<ApiEnvelope<UploadInitResponse>>()?;
-                    if response.code != 0 {
-                        bail!(response.message);
-                    }
-                    self.upload_id = response.data.upload_id;
-                    self.upload_token = response.data.upload_token;
-                    self.chunk_size = response
-                        .data
-                        .chunk_size
-                        .clamp(MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
-                    self.running = true;
-                    Ok(())
+                    self.initialize_upload()
                 }
                 Err(_) => bail!("can't parse filename:{:?}", filename),
             },
@@ -279,6 +318,7 @@ impl RecordUploader {
     }
 
     fn handle_frame(&mut self, flush: bool) -> ResultType<()> {
+        self.initialize_upload()?;
         if !flush && self.last_send.elapsed() < SHOULD_SEND_TIME {
             return Ok(());
         }
@@ -326,25 +366,51 @@ impl RecordUploader {
                     Ok(length) => {
                         buf.truncate(length);
                         self.send_chunk(0, buf)?;
-                        let response = self
-                            .client
-                            .post(format!(
-                                "{}/api/recordings/{}/complete",
-                                self.api_server, self.upload_id
-                            ))
-                            .header("X-Upload-Token", &self.upload_token)
-                            .json(&json!({
-                                "duration_ms": self.started_at.elapsed().as_millis() as u64,
-                                "sha256": self.file_sha256()?,
-                            }))
-                            .send()?
-                            .error_for_status()?
-                            .json::<Map<String, serde_json::Value>>()?;
-                        if response.get("code").and_then(|value| value.as_i64()) != Some(0) {
-                            bail!(response
-                                .get("message")
-                                .map(ToString::to_string)
-                                .unwrap_or_default());
+                        let url = format!(
+                            "{}/api/recordings/{}/complete",
+                            self.api_server, self.upload_id
+                        );
+                        let body = json!({
+                            "duration_ms": self.started_at.elapsed().as_millis() as u64,
+                            "sha256": self.file_sha256()?,
+                        });
+                        let mut last_error = String::new();
+                        let mut completed = false;
+                        for attempt in 0..MAX_SEND_ATTEMPTS {
+                            match self
+                                .client
+                                .post(&url)
+                                .header("X-Upload-Token", &self.upload_token)
+                                .json(&body)
+                                .send()
+                                .and_then(|response| response.error_for_status())
+                            {
+                                Ok(response) => match response
+                                    .json::<Map<String, serde_json::Value>>()
+                                {
+                                    Ok(value)
+                                        if value.get("code").and_then(|value| value.as_i64())
+                                            == Some(0) =>
+                                    {
+                                        completed = true;
+                                        break;
+                                    }
+                                    Ok(value) => {
+                                        last_error = value
+                                            .get("message")
+                                            .map(ToString::to_string)
+                                            .unwrap_or_default()
+                                    }
+                                    Err(err) => last_error = err.to_string(),
+                                },
+                                Err(err) => last_error = err.to_string(),
+                            }
+                            if attempt + 1 < MAX_SEND_ATTEMPTS {
+                                Self::retry_delay(attempt);
+                            }
+                        }
+                        if !completed {
+                            bail!("recording completion failed: {last_error}");
                         }
                         self.running = false;
                         log::info!("upload success, file: {}", self.filename);
@@ -358,7 +424,7 @@ impl RecordUploader {
     }
 
     fn handle_remove(&mut self) -> ResultType<()> {
-        if !self.upload_id.is_empty() && !self.upload_token.is_empty() {
+        if self.initialized && !self.upload_id.is_empty() && !self.upload_token.is_empty() {
             self.client
                 .delete(format!("{}/api/recordings/{}", self.api_server, self.upload_id))
                 .header("X-Upload-Token", &self.upload_token)
