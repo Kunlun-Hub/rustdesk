@@ -244,8 +244,12 @@ impl RecordUploader {
             .rsplit('_')
             .next()
             .unwrap_or_default();
+        #[cfg(not(target_os = "ios"))]
         let (from_peer, from_name, session_id) =
             crate::Connection::recording_context().unwrap_or_default();
+        #[cfg(target_os = "ios")]
+        let (from_peer, from_name, session_id) =
+            (String::new(), String::new(), String::new());
         let body = json!({
             "upload_id": self.upload_id,
             "upload_token": self.upload_token,
