@@ -1992,8 +1992,7 @@ jobs:
             export DEB_ARCH=amd64
             python3 ./build.py --flutter --drm --hwcodec --unix-file-copy-paste --skip-cargo
             for name in rustdesk*??.deb; do
-              base="${name#rustdesk-}"
-              mv "$name" "desklink-${base%%.deb}-x86_64.deb"
+              mv "$name" "desklink-${{ env.ARTIFACT_VERSION }}-unattended-wayland-x86_64.deb"
             done
 
       # build.py can exit 0 on some inner failures, so check the artifact rather than the status.
@@ -2002,12 +2001,11 @@ jobs:
       - name: Check the deb is a drm build
         run: |
           set -euo pipefail
-          # Resolve by glob, not from env.VERSION: build.py names the deb from Cargo.toml, so a
-          # hardcoded name fails with a bare exit 1 the first time those two drift.
+          # The public package name follows the release artifact version, not Cargo.toml.
           shopt -s nullglob
-          debs=(desklink-unattended-wayland-*-x86_64.deb)
+          debs=(desklink-${{ env.ARTIFACT_VERSION }}-unattended-wayland-x86_64.deb)
           if [ "${#debs[@]}" -ne 1 ]; then
-            echo "::error::expected one desklink-unattended-wayland-*-x86_64.deb, found ${#debs[@]}: ${debs[*]-none}"
+            echo "::error::expected one desklink-${{ env.ARTIFACT_VERSION }}-unattended-wayland-x86_64.deb, found ${#debs[@]}: ${debs[*]-none}"
             exit 1
           fi
           deb="${debs[0]}"
