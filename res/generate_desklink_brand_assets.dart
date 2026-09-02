@@ -97,6 +97,32 @@ void _writeIco(String path, img.Image source, List<int> sizes) {
     ..writeAsBytesSync(IcoEncoder().encodeImages(frames));
 }
 
+img.Image _adaptiveForeground(img.Image source) {
+  final canvas = img.Image(
+      width: source.width * 3 ~/ 2,
+      height: source.height * 3 ~/ 2,
+      numChannels: 4);
+  img.compositeImage(canvas, source,
+      dstX: (canvas.width - source.width) ~/ 2,
+      dstY: (canvas.height - source.height) ~/ 2);
+  return canvas;
+}
+
+img.Image _notificationMark(img.Image source) {
+  final mark = img.Image(
+      width: source.width, height: source.height, numChannels: 4);
+  for (final pixel in source) {
+    final r = pixel.r.toInt();
+    final g = pixel.g.toInt();
+    final b = pixel.b.toInt();
+    final max = [r, g, b].reduce((a, b) => a > b ? a : b);
+    final min = [r, g, b].reduce((a, b) => a < b ? a : b);
+    final alpha = min > 170 && max - min < 55 ? pixel.a.toInt() : 0;
+    mark.setPixelRgba(pixel.x, pixel.y, 255, 255, 255, alpha);
+  }
+  return mark;
+}
+
 void main(List<String> args) {
   final root = args.isEmpty ? Directory.current.parent.path : args.first;
   final source = img.decodePng(File('$root/logo/logo.png').readAsBytesSync());
@@ -112,4 +138,21 @@ void main(List<String> args) {
       iconSizes);
   _writeIco('$root/res/icon.ico', transparent, iconSizes);
   _writeIco('$root/res/tray-icon.ico', transparent, [16, 24, 32]);
+
+  const androidSizes = {
+    'mdpi': [48, 108, 24],
+    'hdpi': [72, 162, 36],
+    'xhdpi': [96, 216, 48],
+    'xxhdpi': [144, 324, 72],
+    'xxxhdpi': [192, 432, 96],
+  };
+  final foreground = _adaptiveForeground(transparent);
+  final notification = _notificationMark(transparent);
+  for (final entry in androidSizes.entries) {
+    final dir = '$root/flutter/android/app/src/main/res/mipmap-${entry.key}';
+    _writePng('$dir/ic_launcher.png', transparent, entry.value[0]);
+    _writePng('$dir/ic_launcher_round.png', transparent, entry.value[0]);
+    _writePng('$dir/ic_launcher_foreground.png', foreground, entry.value[1]);
+    _writePng('$dir/ic_stat_logo.png', notification, entry.value[2]);
+  }
 }
