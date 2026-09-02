@@ -578,7 +578,7 @@ fn run(vs: VideoService) -> ResultType<()> {
     let record_incoming = config::option2bool(
         "allow-auto-record-incoming",
         &Config::get_option("allow-auto-record-incoming"),
-    );
+    ) || crate::hbbs_http::record_upload::refresh_policy();
     let client_record = video_qos.record();
     drop(video_qos);
     let (mut encoder, encoder_cfg, codec_format, use_i444, recorder) = match setup_encoder(

@@ -266,6 +266,11 @@ async fn start_hbbs_sync_async() {
                                 handle_config_options(strategy.config_options);
                             }
                         }
+                        if let Some(recording) = rsp.remove("recording") {
+                            if let Some(enabled) = recording.get("enabled").and_then(Value::as_bool) {
+                                crate::hbbs_http::record_upload::set_policy_enabled(enabled);
+                            }
+                        }
                     }
                 }
             }

@@ -5291,6 +5291,20 @@ impl Connection {
         ALIVE_CONNS.lock().unwrap().clone()
     }
 
+    pub fn recording_context() -> Option<(String, String, String)> {
+        AUTHED_CONNS.lock().ok()?.iter().find_map(|conn| {
+            if conn.conn_type == AuthConnType::Remote {
+                Some((
+                    conn.session_key.peer_id.clone(),
+                    conn.session_key.name.clone(),
+                    conn.session_key.session_id.to_string(),
+                ))
+            } else {
+                None
+            }
+        })
+    }
+
     #[cfg(windows)]
     fn portable_check(&mut self) {
         if self.portable.is_installed || !self.is_remote() || !self.keyboard {
