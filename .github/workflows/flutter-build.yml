@@ -1762,7 +1762,7 @@ jobs:
           fi
           name="${packages[0]}"
           base="${name##*/}"
-          mv "$name" "desklink-${base#rustdesk-}"
+          sudo mv "$name" "desklink-${base#rustdesk-}"
 
       - name: Publish archlinux package
         if: matrix.job.arch == 'x86_64' && env.UPLOAD_ARTIFACT == 'true'
