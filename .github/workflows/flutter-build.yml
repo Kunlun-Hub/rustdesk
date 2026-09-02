@@ -2088,6 +2088,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Remove platform-irrelevant vcpkg overrides
+        run: |
+          jq 'del(.overrides)' vcpkg.json > vcpkg.json.tmp
+          mv vcpkg.json.tmp vcpkg.json
+
       - name: Modify vcpkg.json for armv7
         if: matrix.job.vcpkg-triplet == 'arm-linux'
         run: |
