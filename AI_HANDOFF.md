@@ -67,6 +67,8 @@ protection merely to make the monitor display a larger number.
   `libs/scrap/src/common/record.rs`, and uploads them from
   `src/hbbs_http/record_upload.rs`. The API overlays the standard cursor during
   admin playback; old recordings made before this protocol have no cursor track.
+  Keep cursor position access desktop-only: Android and iOS do not export
+  `crate::get_cursor_pos()` and must return no cursor sample.
 - Online state queries use the rendezvous online endpoint. API heartbeat state
   is separate: `src/hbbs_http/sync.rs` posts to `/api/heartbeat` periodically.
 

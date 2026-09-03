@@ -1169,9 +1169,7 @@ fn handle_one_frame(
             let mut msg = Message::new();
             msg.set_video_frame(vf);
             recorder.lock().unwrap().as_mut().map(|r| {
-                let cursor = crate::get_cursor_pos().and_then(|position| {
-                    normalize_recording_cursor(position, origin, width, height)
-                });
+                let cursor = recording_cursor(origin, width, height);
                 r.write_message(&msg, width, height, cursor)
             });
             send_conn_ids = sp.send_video_frame(msg);
@@ -1208,6 +1206,17 @@ fn handle_one_frame(
         }
     }
     Ok(send_conn_ids)
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn recording_cursor(origin: (i32, i32), width: usize, height: usize) -> Option<(u16, u16)> {
+    crate::get_cursor_pos()
+        .and_then(|position| normalize_recording_cursor(position, origin, width, height))
+}
+
+#[cfg(any(target_os = "android", target_os = "ios"))]
+fn recording_cursor(_origin: (i32, i32), _width: usize, _height: usize) -> Option<(u16, u16)> {
+    None
 }
 
 fn normalize_recording_cursor(
