@@ -99,6 +99,7 @@ pub trait RecorderApi {
 pub enum RecordState {
     NewFile(String),
     NewFrame,
+    Cursor { x: u16, y: u16, visible: bool },
     WriteTail,
     RemoveFile,
 }
@@ -186,10 +187,22 @@ impl Recorder {
         Ok(())
     }
 
-    pub fn write_message(&mut self, msg: &Message, w: usize, h: usize) {
+    pub fn write_message(&mut self, msg: &Message, w: usize, h: usize, cursor: Option<(u16, u16)>) {
         if let Some(message::Union::VideoFrame(vf)) = &msg.union {
             if let Some(frame) = &vf.union {
                 self.write_frame(frame, w, h).ok();
+                self.send_state(match cursor {
+                    Some((x, y)) => RecordState::Cursor {
+                        x,
+                        y,
+                        visible: true,
+                    },
+                    None => RecordState::Cursor {
+                        x: 0,
+                        y: 0,
+                        visible: false,
+                    },
+                });
             }
         }
     }

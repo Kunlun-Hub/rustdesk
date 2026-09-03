@@ -7,6 +7,7 @@ use hbb_common::{
 use reqwest::blocking::Client;
 use scrap::record::RecordState;
 use serde::Deserialize;
+use serde::Serialize;
 use serde_json::{json, Map};
 use sha2::{Digest, Sha256};
 use std::{
@@ -66,7 +67,10 @@ struct UploadInitResponse {
 
 pub fn refresh_policy() -> bool {
     if let Ok(last) = LAST_POLICY_CHECK.lock() {
-        if last.map(|value| value.elapsed() < POLICY_CACHE_TIME).unwrap_or(false) {
+        if last
+            .map(|value| value.elapsed() < POLICY_CACHE_TIME)
+            .unwrap_or(false)
+        {
             return is_enable();
         }
     }
@@ -125,6 +129,9 @@ pub fn run(rx: Receiver<RecordState>) {
             running: Default::default(),
             last_send: Instant::now(),
             started_at: Instant::now(),
+            cursor_track: Vec::new(),
+            last_cursor: None,
+            last_cursor_sample: Instant::now(),
         };
         loop {
             if let Err(e) = match rx.recv() {
@@ -136,6 +143,10 @@ pub fn run(rx: Receiver<RecordState>) {
                         } else {
                             Ok(())
                         }
+                    }
+                    RecordState::Cursor { x, y, visible } => {
+                        uploader.handle_cursor(x, y, visible);
+                        Ok(())
                     }
                     RecordState::WriteTail => {
                         if uploader.running {
@@ -176,6 +187,17 @@ struct RecordUploader {
     running: bool,
     last_send: Instant,
     started_at: Instant,
+    cursor_track: Vec<CursorSample>,
+    last_cursor: Option<(u16, u16, bool)>,
+    last_cursor_sample: Instant,
+}
+
+#[derive(Clone, Serialize)]
+struct CursorSample {
+    t: u64,
+    x: u16,
+    y: u16,
+    visible: bool,
 }
 impl RecordUploader {
     fn retry_delay(attempt: usize) {
@@ -203,27 +225,27 @@ impl RecordUploader {
         );
         let mut last_error = String::new();
         for attempt in 0..MAX_SEND_ATTEMPTS {
-            match self.client.put(&url)
+            match self
+                .client
+                .put(&url)
                 .query(&[("offset", offset.to_string())])
                 .header("X-Upload-Token", &self.upload_token)
                 .body(body.clone())
                 .send()
                 .and_then(|response| response.error_for_status())
             {
-                Ok(response) => {
-                    match response.json::<Map<String, serde_json::Value>>() {
-                        Ok(value) => {
-                            if value.get("code").and_then(|v| v.as_i64()) == Some(0) {
-                                return Ok(());
-                            }
-                            last_error = value
-                                .get("message")
-                                .map(ToString::to_string)
-                                .unwrap_or_default();
+                Ok(response) => match response.json::<Map<String, serde_json::Value>>() {
+                    Ok(value) => {
+                        if value.get("code").and_then(|v| v.as_i64()) == Some(0) {
+                            return Ok(());
                         }
-                        Err(err) => last_error = err.to_string(),
+                        last_error = value
+                            .get("message")
+                            .map(ToString::to_string)
+                            .unwrap_or_default();
                     }
-                }
+                    Err(err) => last_error = err.to_string(),
+                },
                 Err(err) => last_error = err.to_string(),
             }
             if attempt + 1 < MAX_SEND_ATTEMPTS {
@@ -248,8 +270,7 @@ impl RecordUploader {
         let (from_peer, from_name, session_id) =
             crate::Connection::recording_context().unwrap_or_default();
         #[cfg(target_os = "ios")]
-        let (from_peer, from_name, session_id) =
-            (String::new(), String::new(), String::new());
+        let (from_peer, from_name, session_id) = (String::new(), String::new(), String::new());
         let body = json!({
             "upload_id": self.upload_id,
             "upload_token": self.upload_token,
@@ -312,12 +333,34 @@ impl RecordUploader {
                     self.running = true;
                     self.started_at = Instant::now();
                     self.last_send = Instant::now();
+                    self.cursor_track.clear();
+                    self.last_cursor = None;
+                    self.last_cursor_sample = Instant::now();
                     self.initialize_upload()
                 }
                 Err(_) => bail!("can't parse filename:{:?}", filename),
             },
             None => bail!("can't parse filepath:{}", filepath),
         }
+    }
+
+    fn handle_cursor(&mut self, x: u16, y: u16, visible: bool) {
+        if !self.running || self.last_cursor == Some((x, y, visible)) {
+            return;
+        }
+        if self.last_cursor.map(|value| value.2) == Some(visible)
+            && self.last_cursor_sample.elapsed() < Duration::from_millis(100)
+        {
+            return;
+        }
+        self.last_cursor = Some((x, y, visible));
+        self.last_cursor_sample = Instant::now();
+        self.cursor_track.push(CursorSample {
+            t: self.started_at.elapsed().as_millis() as u64,
+            x,
+            y,
+            visible,
+        });
     }
 
     fn handle_frame(&mut self, flush: bool) -> ResultType<()> {
@@ -376,6 +419,7 @@ impl RecordUploader {
                         let body = json!({
                             "duration_ms": self.started_at.elapsed().as_millis() as u64,
                             "sha256": self.file_sha256()?,
+                            "cursor_track": self.cursor_track,
                         });
                         let mut last_error = String::new();
                         let mut completed = false;
@@ -429,7 +473,10 @@ impl RecordUploader {
     fn handle_remove(&mut self) -> ResultType<()> {
         if self.initialized && !self.upload_id.is_empty() && !self.upload_token.is_empty() {
             self.client
-                .delete(format!("{}/api/recordings/{}", self.api_server, self.upload_id))
+                .delete(format!(
+                    "{}/api/recordings/{}",
+                    self.api_server, self.upload_id
+                ))
                 .header("X-Upload-Token", &self.upload_token)
                 .send()?
                 .error_for_status()?;

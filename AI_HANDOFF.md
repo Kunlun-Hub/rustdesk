@@ -8,7 +8,7 @@ upstream RustDesk repository and must not receive DeskLink product changes.
 
 ## Current Release
 
-- Latest release tag: `zto57`
+- Latest release tag before cursor-track work: `zto57`
 - Release: `https://github.com/Kunlun-Hub/rustdesk/releases/tag/zto57`
 - Successful workflow run: `33646246438`
 - Release commit: `41ccb154bbd6f41b63203760be3d0cfad65556ee`
@@ -62,6 +62,11 @@ protection merely to make the monitor display a larger number.
 - Recording upload/policy handling is under `src/hbbs_http/`, with the session
   integration in the client/server modules. Keep iOS conditional compilation in
   mind: iOS does not expose the desktop `Connection` type.
+- Recording cursor playback samples the controlled host cursor at up to 10 Hz in
+  `src/server/video_service.rs`, sends normalized per-display coordinates through
+  `libs/scrap/src/common/record.rs`, and uploads them from
+  `src/hbbs_http/record_upload.rs`. The API overlays the standard cursor during
+  admin playback; old recordings made before this protocol have no cursor track.
 - Online state queries use the rendezvous online endpoint. API heartbeat state
   is separate: `src/hbbs_http/sync.rs` posts to `/api/heartbeat` periodically.
 

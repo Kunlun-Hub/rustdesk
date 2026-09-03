@@ -654,6 +654,7 @@ fn run(vs: VideoService) -> ResultType<()> {
     let mut first_frame = true;
     let capture_width = c.width;
     let capture_height = c.height;
+    let capture_origin = c.origin;
     let (mut second_instant, mut send_counter) = (Instant::now(), 0);
 
     while sp.ok() {
@@ -784,6 +785,7 @@ fn run(vs: VideoService) -> ResultType<()> {
                         &mut first_frame,
                         capture_width,
                         capture_height,
+                        capture_origin,
                     )?;
                     frame_controller.set_send(now, send_conn_ids);
                     send_counter += 1;
@@ -843,6 +845,7 @@ fn run(vs: VideoService) -> ResultType<()> {
                             &mut first_frame,
                             capture_width,
                             capture_height,
+                            capture_origin,
                         )?;
                         frame_controller.set_send(now, send_conn_ids);
                         send_counter += 1;
@@ -1145,6 +1148,7 @@ fn handle_one_frame(
     first_frame: &mut bool,
     width: usize,
     height: usize,
+    origin: (i32, i32),
 ) -> ResultType<HashSet<i32>> {
     sp.snapshot(|sps| {
         // so that new sub and old sub share the same encoder after switch
@@ -1164,11 +1168,12 @@ fn handle_one_frame(
             vf.display = display as _;
             let mut msg = Message::new();
             msg.set_video_frame(vf);
-            recorder
-                .lock()
-                .unwrap()
-                .as_mut()
-                .map(|r| r.write_message(&msg, width, height));
+            recorder.lock().unwrap().as_mut().map(|r| {
+                let cursor = crate::get_cursor_pos().and_then(|position| {
+                    normalize_recording_cursor(position, origin, width, height)
+                });
+                r.write_message(&msg, width, height, cursor)
+            });
             send_conn_ids = sp.send_video_frame(msg);
         }
         Err(e) => {
@@ -1203,6 +1208,23 @@ fn handle_one_frame(
         }
     }
     Ok(send_conn_ids)
+}
+
+fn normalize_recording_cursor(
+    position: (i32, i32),
+    origin: (i32, i32),
+    width: usize,
+    height: usize,
+) -> Option<(u16, u16)> {
+    let x = position.0 - origin.0;
+    let y = position.1 - origin.1;
+    if x < 0 || y < 0 || x >= width as i32 || y >= height as i32 {
+        return None;
+    }
+    Some((
+        ((x as u64 * u16::MAX as u64) / width.max(1) as u64) as u16,
+        ((y as u64 * u16::MAX as u64) / height.max(1) as u64) as u16,
+    ))
 }
 
 #[inline]
@@ -1423,5 +1445,26 @@ fn handle_screenshot(screenshot: Screenshot, msg: String, w: usize, h: usize, da
         .send((hbb_common::tokio::time::Instant::now(), Arc::new(msg_out)))
     {
         log::error!("Failed to send screenshot, {}", e);
+    }
+}
+
+#[cfg(test)]
+mod recording_cursor_tests {
+    use super::normalize_recording_cursor;
+
+    #[test]
+    fn normalizes_cursor_relative_to_selected_display() {
+        assert_eq!(
+            normalize_recording_cursor((2920, 540), (1920, 0), 2000, 1080),
+            Some((32767, 32767))
+        );
+        assert_eq!(
+            normalize_recording_cursor((1919, 540), (1920, 0), 2000, 1080),
+            None
+        );
+        assert_eq!(
+            normalize_recording_cursor((3920, 540), (1920, 0), 2000, 1080),
+            None
+        );
     }
 }
