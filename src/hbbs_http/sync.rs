@@ -79,8 +79,8 @@ impl AgentMetricsState {
     fn should_send(&self) -> bool {
         let seconds = Config::get_option("agent-metrics-interval")
             .parse::<u64>()
-            .unwrap_or(30)
-            .clamp(10, 3600);
+            .unwrap_or(5)
+            .clamp(5, 3600);
         self.last_sent
             .map(|value| value.elapsed() >= Duration::from_secs(seconds))
             .unwrap_or(true)
@@ -114,6 +114,7 @@ impl AgentMetricsState {
         self.last_sent = Some(now);
         json!({
             "id": Config::get_id(), "uuid": crate::encode64(hbb_common::get_uuid()), "timestamp": hbb_common::get_time() / 1000,
+            "cpu_model": self.system.cpus().first().map(|cpu| cpu.brand().trim()).unwrap_or_default(),
             "cpu_usage": self.system.global_cpu_info().cpu_usage(), "memory_total": total, "memory_used": used,
             "memory_usage": if total > 0 { used as f64 * 100.0 / total as f64 } else { 0.0 }, "disks": disks,
             "disk_read_bps": read_bps, "disk_write_bps": write_bps,
@@ -375,6 +376,11 @@ async fn start_hbbs_sync_async() {
                         if let Some(recording) = rsp.remove("recording") {
                             if let Some(enabled) = recording.get("enabled").and_then(Value::as_bool) {
                                 crate::hbbs_http::record_upload::set_policy_enabled(enabled);
+                            }
+                        }
+                        if let Some(agent_metrics) = rsp.remove("agent_metrics") {
+                            if let Some(interval) = agent_metrics.get("interval").and_then(Value::as_u64) {
+                                Config::set_option("agent-metrics-interval".to_owned(), interval.clamp(5, 3600).to_string());
                             }
                         }
                     }

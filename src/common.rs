@@ -887,6 +887,7 @@ pub fn get_sysinfo() -> serde_json::Value {
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let mut out;
     out = json!({
+        "cpu_model": cpu_name,
         "cpu": format!("{cpu}{num_cpus}/{num_pcpus} cores"),
         "memory": format!("{memory}GB"),
         "os": os,
