@@ -57,6 +57,104 @@ struct InfoUploaded {
     username: Option<String>,
 }
 
+struct AgentMetricsState {
+    system: hbb_common::sysinfo::System,
+    disks: hbb_common::sysinfo::Disks,
+    last_io: Option<(u64, u64, Instant)>,
+    last_sent: Option<Instant>,
+}
+
+impl Default for AgentMetricsState {
+    fn default() -> Self {
+        Self {
+            system: hbb_common::sysinfo::System::new(),
+            disks: hbb_common::sysinfo::Disks::new_with_refreshed_list(),
+            last_io: None,
+            last_sent: None,
+        }
+    }
+}
+
+impl AgentMetricsState {
+    fn should_send(&self) -> bool {
+        let seconds = Config::get_option("agent-metrics-interval")
+            .parse::<u64>()
+            .unwrap_or(30)
+            .clamp(10, 3600);
+        self.last_sent
+            .map(|value| value.elapsed() >= Duration::from_secs(seconds))
+            .unwrap_or(true)
+    }
+
+    fn collect(&mut self) -> Value {
+        self.system.refresh_cpu();
+        self.system.refresh_memory();
+        self.disks.refresh();
+        let total = self.system.total_memory();
+        let used = self.system.used_memory();
+        let disks = self.disks.list().iter().map(|disk| {
+            let total_space = disk.total_space();
+            let available = disk.available_space();
+            let used_space = total_space.saturating_sub(available);
+            json!({"mount": disk.mount_point().to_string_lossy(), "total": total_space, "used": used_space, "usage": if total_space > 0 { used_space as f64 * 100.0 / total_space as f64 } else { 0.0 }})
+        }).collect::<Vec<_>>();
+        let now = Instant::now();
+        let (read, write) = disk_io_bytes();
+        let (read_bps, write_bps) = self
+            .last_io
+            .map(|(old_read, old_write, old_time)| {
+                let elapsed = now.duration_since(old_time).as_secs_f64().max(0.001);
+                (
+                    ((read.saturating_sub(old_read) as f64 / elapsed) as u64),
+                    ((write.saturating_sub(old_write) as f64 / elapsed) as u64),
+                )
+            })
+            .unwrap_or((0, 0));
+        self.last_io = Some((read, write, now));
+        self.last_sent = Some(now);
+        json!({
+            "id": Config::get_id(), "uuid": crate::encode64(hbb_common::get_uuid()), "timestamp": hbb_common::get_time() / 1000,
+            "cpu_usage": self.system.global_cpu_info().cpu_usage(), "memory_total": total, "memory_used": used,
+            "memory_usage": if total > 0 { used as f64 * 100.0 / total as f64 } else { 0.0 }, "disks": disks,
+            "disk_read_bps": read_bps, "disk_write_bps": write_bps,
+        })
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn disk_io_bytes() -> (u64, u64) {
+    let Ok(value) = std::fs::read_to_string("/proc/diskstats") else {
+        return (0, 0);
+    };
+    value
+        .lines()
+        .filter_map(|line| {
+            let fields = line.split_whitespace().collect::<Vec<_>>();
+            if fields.len() < 14 {
+                return None;
+            }
+            let name = fields[2];
+            if name.starts_with("loop") || name.starts_with("ram") || name.starts_with("dm-") {
+                return None;
+            }
+            Some((
+                fields[5].parse::<u64>().ok()? * 512,
+                fields[9].parse::<u64>().ok()? * 512,
+            ))
+        })
+        .fold((0, 0), |(read, write), (next_read, next_write)| {
+            (
+                read.saturating_add(next_read),
+                write.saturating_add(next_write),
+            )
+        })
+}
+
+#[cfg(not(target_os = "linux"))]
+fn disk_io_bytes() -> (u64, u64) {
+    (0, 0)
+}
+
 impl Default for InfoUploaded {
     fn default() -> Self {
         Self {
@@ -91,6 +189,7 @@ async fn start_hbbs_sync_async() {
     let mut last_sent: Option<Instant> = None;
     let mut info_uploaded = InfoUploaded::default();
     let mut sysinfo_ver = "".to_owned();
+    let mut metrics = AgentMetricsState::default();
     loop {
         tokio::select! {
             _ = interval.tick() => {
@@ -104,6 +203,13 @@ async fn start_hbbs_sync_async() {
                     continue;
                 }
                 let conns = Connection::alive_conns();
+                if metrics.should_send() {
+                    let url = format!("{}/api/agent/metrics", url.trim_end_matches("/api/heartbeat"));
+                    let body = metrics.collect().to_string();
+                    if let Err(error) = crate::post_request(url, body, "").await {
+                        log::debug!("agent metrics upload failed: {error}");
+                    }
+                }
                 if info_uploaded.uploaded && (url != info_uploaded.url || id != info_uploaded.id) {
                     info_uploaded.uploaded = false;
                     *PRO.lock().unwrap() = false;
@@ -425,10 +531,7 @@ mod tests {
         let verifier = switch_code_verifier(switch_code);
         assert_ne!(verifier, switch_code);
         assert_eq!(verifier, switch_code_verifier(switch_code));
-        assert_eq!(
-            verifier,
-            "dMIn3uiPe77XodFB5IKi7PrKJ7l7+zVquNn0ObSaHQc="
-        );
+        assert_eq!(verifier, "dMIn3uiPe77XodFB5IKi7PrKJ7l7+zVquNn0ObSaHQc=");
     }
 
     #[test]
