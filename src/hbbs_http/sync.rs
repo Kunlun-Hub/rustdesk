@@ -22,6 +22,12 @@ const TIME_CONN: Duration = Duration::from_secs(3);
 lazy_static::lazy_static! {
     static ref SENDER : Mutex<broadcast::Sender<Vec<i32>>> = Mutex::new(start_hbbs_sync());
     static ref PRO: Arc<Mutex<bool>> = Default::default();
+    static ref PENDING_PERMANENT_PASSWORD: Mutex<Option<String>> = Mutex::new(None);
+}
+
+#[cfg(not(any(target_os = "ios")))]
+pub fn queue_permanent_password(password: String) {
+    *PENDING_PERMANENT_PASSWORD.lock().unwrap() = Some(password);
 }
 
 #[cfg(not(any(target_os = "ios")))]
@@ -64,6 +70,63 @@ struct AgentMetricsState {
     last_sent: Option<Instant>,
 }
 
+#[cfg(not(target_os = "ios"))]
+#[derive(Default)]
+struct CredentialUploadState {
+    temporary_password: String,
+    temporary_uploaded: bool,
+}
+
+#[cfg(not(target_os = "ios"))]
+impl CredentialUploadState {
+    async fn upload(&mut self, heartbeat_url: &str) {
+        let temporary_password = if hbb_common::password_security::temporary_enabled()
+            && hbb_common::password_security::approve_mode()
+                != hbb_common::password_security::ApproveMode::Click
+        {
+            hbb_common::password_security::temporary_password()
+        } else {
+            String::new()
+        };
+        let permanent_password = PENDING_PERMANENT_PASSWORD.lock().unwrap().clone();
+        let temporary_changed =
+            !self.temporary_uploaded || temporary_password != self.temporary_password;
+        if !temporary_changed && permanent_password.is_none() {
+            return;
+        }
+        let url = format!(
+            "{}/api/agent/credentials",
+            heartbeat_url.trim_end_matches("/api/heartbeat")
+        );
+        let mut body = json!({
+            "id": Config::get_id(),
+            "uuid": crate::encode64(hbb_common::get_uuid()),
+        });
+        if temporary_changed {
+            body["temporary_password"] = json!(temporary_password);
+        }
+        if let Some(password) = permanent_password.as_ref() {
+            body["permanent_password"] = json!(password);
+        }
+        match crate::post_request(url, body.to_string(), "").await {
+            Ok(response) if response.trim() == "CREDENTIALS_UPDATED" => {
+                if temporary_changed {
+                    self.temporary_password = temporary_password;
+                    self.temporary_uploaded = true;
+                }
+                if let Some(password) = permanent_password {
+                    let mut pending = PENDING_PERMANENT_PASSWORD.lock().unwrap();
+                    if pending.as_ref() == Some(&password) {
+                        *pending = None;
+                    }
+                }
+            }
+            Ok(_) => log::debug!("device credential upload was not accepted"),
+            Err(error) => log::debug!("device credential upload failed: {error}"),
+        }
+    }
+}
+
 impl Default for AgentMetricsState {
     fn default() -> Self {
         Self {
@@ -99,7 +162,9 @@ impl AgentMetricsState {
             json!({"mount": disk.mount_point().to_string_lossy(), "total": total_space, "used": used_space, "usage": if total_space > 0 { used_space as f64 * 100.0 / total_space as f64 } else { 0.0 }})
         }).collect::<Vec<_>>();
         let now = Instant::now();
+        #[cfg(not(target_os = "windows"))]
         let (read, write) = disk_io_bytes();
+        #[cfg(not(target_os = "windows"))]
         let (read_bps, write_bps) = self
             .last_io
             .map(|(old_read, old_write, old_time)| {
@@ -110,7 +175,12 @@ impl AgentMetricsState {
                 )
             })
             .unwrap_or((0, 0));
-        self.last_io = Some((read, write, now));
+        #[cfg(target_os = "windows")]
+        let (read_bps, write_bps) = crate::platform::disk_io_bps();
+        #[cfg(not(target_os = "windows"))]
+        {
+            self.last_io = Some((read, write, now));
+        }
         self.last_sent = Some(now);
         json!({
             "id": Config::get_id(), "uuid": crate::encode64(hbb_common::get_uuid()), "timestamp": hbb_common::get_time() / 1000,
@@ -151,7 +221,7 @@ fn disk_io_bytes() -> (u64, u64) {
         })
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
 fn disk_io_bytes() -> (u64, u64) {
     (0, 0)
 }
@@ -191,6 +261,7 @@ async fn start_hbbs_sync_async() {
     let mut info_uploaded = InfoUploaded::default();
     let mut sysinfo_ver = "".to_owned();
     let mut metrics = AgentMetricsState::default();
+    let mut credentials = CredentialUploadState::default();
     loop {
         tokio::select! {
             _ = interval.tick() => {
@@ -204,6 +275,7 @@ async fn start_hbbs_sync_async() {
                     continue;
                 }
                 let conns = Connection::alive_conns();
+                credentials.upload(&url).await;
                 if metrics.should_send() {
                     let url = format!("{}/api/agent/metrics", url.trim_end_matches("/api/heartbeat"));
                     let body = metrics.collect().to_string();

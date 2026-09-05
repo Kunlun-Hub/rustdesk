@@ -976,6 +976,10 @@ async fn handle(data: Data, stream: &mut Connection) {
                     } else {
                         updated = Config::set_permanent_password(&value);
                     }
+                    #[cfg(not(target_os = "ios"))]
+                    if updated {
+                        crate::hbbs_http::sync::queue_permanent_password(value.clone());
+                    }
                     // Explicitly ACK/NACK permanent-password writes. This allows UIs/FFI to
                     // distinguish "accepted by daemon" vs "IPC send succeeded" without
                     // reading back any secret.

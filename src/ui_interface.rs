@@ -647,7 +647,12 @@ pub fn set_permanent_password_with_result(password: String) -> bool {
     }
     #[cfg(any(target_os = "android", target_os = "ios"))]
     {
-        return config::Config::set_permanent_password(&password);
+        let updated = config::Config::set_permanent_password(&password);
+        #[cfg(not(target_os = "ios"))]
+        if updated {
+            crate::hbbs_http::sync::queue_permanent_password(password);
+        }
+        return updated;
     }
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {

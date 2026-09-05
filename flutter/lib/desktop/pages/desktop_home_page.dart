@@ -81,6 +81,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   var watchIsInputMonitoring = false;
   var watchIsCanRecordAudio = false;
   Timer? _updateTimer;
+  Timer? _passwordRevealTimer;
+  bool _passwordVisible = false;
+  String _revealedPassword = '';
   bool isCardClosed = false;
 
   final RxBool _block = false.obs;
@@ -387,6 +390,11 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       {EdgeInsetsGeometry? margin, bool compact = false}) {
     final showOneTime = model.approveMode != 'click' &&
         model.verificationMethod != kUsePermanentPassword;
+    final canReveal = showOneTime &&
+        model.serverPasswd.text.isNotEmpty &&
+        model.serverPasswd.text != '-';
+    final passwordVisible =
+        _passwordVisible && _revealedPassword == model.serverPasswd.text;
     return Container(
       margin: margin ?? const EdgeInsets.fromLTRB(20, 10, 20, 12),
       padding:
@@ -407,6 +415,10 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                 child: TextField(
                   controller: model.serverPasswd,
                   readOnly: true,
+                  obscureText: canReveal && !passwordVisible,
+                  obscuringCharacter: '•',
+                  enableSuggestions: false,
+                  autocorrect: false,
                   decoration: const InputDecoration(
                     filled: false,
                     border: InputBorder.none,
@@ -424,6 +436,14 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                 ).workaroundFreezeLinuxMint(),
               ),
               if (showOneTime) ...[
+                if (canReveal)
+                  _CredentialAction(
+                    tooltip: translate('Password'),
+                    icon: passwordVisible
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    onTap: _togglePasswordVisibility,
+                  ),
                 _CredentialAction(
                   tooltip: translate('Copy'),
                   icon: Icons.content_copy_rounded,
@@ -436,7 +456,10 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                 _CredentialAction(
                   tooltip: translate('Refresh Password'),
                   icon: Icons.refresh_rounded,
-                  onTap: () => bind.mainUpdateTemporaryPassword(),
+                  onTap: () {
+                    _hidePassword();
+                    bind.mainUpdateTemporaryPassword();
+                  },
                 ),
               ],
               if (!bind.isDisableSettings())
@@ -451,6 +474,27 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         ],
       ),
     );
+  }
+
+  void _togglePasswordVisibility() {
+    _passwordRevealTimer?.cancel();
+    if (_passwordVisible &&
+        _revealedPassword == gFFI.serverModel.serverPasswd.text) {
+      setState(() => _passwordVisible = false);
+      return;
+    }
+    _revealedPassword = gFFI.serverModel.serverPasswd.text;
+    setState(() => _passwordVisible = true);
+    _passwordRevealTimer = Timer(const Duration(seconds: 15), _hidePassword);
+  }
+
+  void _hidePassword() {
+    _passwordRevealTimer?.cancel();
+    _passwordRevealTimer = null;
+    _revealedPassword = '';
+    if (mounted && _passwordVisible) {
+      setState(() => _passwordVisible = false);
+    }
   }
 
   buildTip(BuildContext context) {
@@ -913,6 +957,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     _uniLinksSubscription?.cancel();
     Get.delete<RxBool>(tag: 'stop-service');
     _updateTimer?.cancel();
+    _passwordRevealTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

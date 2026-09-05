@@ -9,6 +9,12 @@ pub use windows::*;
 pub mod windows;
 
 #[cfg(windows)]
+mod windows_disk_io;
+
+#[cfg(windows)]
+pub(crate) use windows_disk_io::disk_io_bps;
+
+#[cfg(windows)]
 pub mod win_device;
 
 #[cfg(target_os = "macos")]
