@@ -92,7 +92,7 @@ class _PeersViewState extends State<_PeersView>
   static const int _maxQueryCount = 3;
   final HashMap<String, String> _emptyMessages = HashMap.from({
     LoadEvent.recent: 'empty_recent_tip',
-    LoadEvent.favorite: 'empty_favorite_tip',
+    LoadEvent.favorite: 'empty_address_book_tip',
     LoadEvent.lan: 'empty_lan_tip',
     LoadEvent.addressBook: 'empty_address_book_tip',
   });

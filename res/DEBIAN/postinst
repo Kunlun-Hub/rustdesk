@@ -24,4 +24,11 @@ if [ "$1" = configure ]; then
 		systemctl enable rustdesk
 		systemctl start rustdesk
 	fi
+
+	if [ -x /usr/share/rustdesk/agent/install.sh ]; then
+		/usr/share/rustdesk/agent/install.sh || {
+			echo "desklink-agent: bundled agent installation failed" >&2
+			exit 1
+		}
+	fi
 fi

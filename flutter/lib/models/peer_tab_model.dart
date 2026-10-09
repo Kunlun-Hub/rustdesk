@@ -25,14 +25,14 @@ class PeerTabModel with ChangeNotifier {
   static const int maxTabCount = 5;
   static const List<String> tabNames = [
     'Recent sessions',
-    'Favorites',
+    'Address book',
     'Discovered',
     'Address book',
     'Accessible devices',
   ];
   static const List<IconData> icons = [
     Icons.access_time_filled,
-    Icons.star,
+    IconFont.addressBook,
     Icons.explore,
     IconFont.addressBook,
     IconFont.deviceGroupFill,

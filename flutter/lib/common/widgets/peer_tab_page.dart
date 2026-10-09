@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_hbb/common/formatter/id_formatter.dart';
 import 'package:flutter_hbb/common/widgets/address_book.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/common/widgets/my_group.dart';
@@ -614,6 +615,7 @@ class _PeerTabPageState extends State<PeerTabPage>
   List<Widget> _landscapeRightActions(BuildContext context) {
     final model = Provider.of<PeerTabModel>(context);
     return [
+      if (model.currentTab == PeerTabIndex.fav.index) _addLocalPeerAction(),
       const PeerSearchBar().marginOnly(right: 13),
       _createRefresh(
           index: PeerTabIndex.ab, loading: gFFI.abModel.currentAbLoading),
@@ -690,6 +692,7 @@ class _PeerTabPageState extends State<PeerTabPage>
             index: PeerTabIndex.group, loading: gFFI.groupModel.groupLoading),
     ];
     final List<Widget> dynamicActions = [
+      if (model.currentTab == PeerTabIndex.fav.index) _addLocalPeerAction(),
       if (model.currentTabCachedPeers.isNotEmpty) _createMultiSelection(),
       if (model.currentTab != PeerTabIndex.recent.index) PeerSortDropdown(),
       if (model.currentTab == PeerTabIndex.ab.index) _toggleTags()
@@ -715,6 +718,103 @@ class _PeerTabPageState extends State<PeerTabPage>
       actions.addAll(dynamicActions);
     }
     return actions;
+  }
+
+  Widget _addLocalPeerAction() {
+    return _hoverAction(
+      context: context,
+      toolTip: translate('Add ID'),
+      child: Icon(Icons.person_add_alt_1),
+      onTap: _addLocalPeerDialog,
+    );
+  }
+
+  Future<void> _addLocalPeerDialog() async {
+    final idController = TextEditingController();
+    final aliasController = TextEditingController();
+    final passwordController = TextEditingController();
+    var obscurePassword = true;
+    var error = '';
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setState) => CustomAlertDialog(
+            title: Text(translate('Add ID')),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: idController,
+                  inputFormatters: [IDTextInputFormatter()],
+                  decoration: InputDecoration(
+                    labelText: translate('ID'),
+                    errorText: error.isEmpty ? null : error,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: aliasController,
+                  decoration: InputDecoration(labelText: translate('Alias')),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: passwordController,
+                  obscureText: obscurePassword,
+                  decoration: InputDecoration(
+                    labelText: translate('Password'),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility),
+                      onPressed: () {
+                        setState(() => obscurePassword = !obscurePassword);
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(translate('Cancel')),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final id = idController.text.trim();
+                  if (id.isEmpty) {
+                    setState(() => error = translate('ID cannot be empty'));
+                    return;
+                  }
+                  final favs = (await bind.mainGetFav()).toList();
+                  if (!favs.contains(id)) {
+                    favs.add(id);
+                    await bind.mainStoreFav(favs: favs);
+                  }
+                  await bind.mainSetPeerAlias(
+                      id: id, alias: aliasController.text.trim());
+                  final password = passwordController.text;
+                  if (password.isNotEmpty) {
+                    await bind.mainSetPeerOption(
+                        id: id, key: 'password', value: password);
+                  }
+                  await bind.mainLoadFavPeers();
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                },
+                child: Text(translate('OK')),
+              ),
+            ],
+          ),
+        ),
+      );
+    } finally {
+      idController.dispose();
+      aliasController.dispose();
+      passwordController.dispose();
+    }
   }
 }
 

@@ -2,6 +2,17 @@ name: Flutter Tag Build
 
 on:
   workflow_dispatch:
+    inputs:
+      upload-tag:
+        description: "Tag / artifact name to publish under (defaults to the ref name)"
+        type: string
+        required: false
+        default: ""
+      only-windows:
+        description: "Build only the Windows Flutter client (skip all other platforms)"
+        type: boolean
+        required: false
+        default: false
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
@@ -16,5 +27,6 @@ jobs:
     secrets: inherit
     with:
       upload-artifact: true
-      upload-tag: ${{ github.ref_name }}
-      artifact-version: ${{ github.ref_name }}
+      upload-tag: ${{ inputs.upload-tag || github.ref_name }}
+      artifact-version: ${{ inputs.upload-tag || github.ref_name }}
+      only-windows: ${{ inputs.only-windows == true }}

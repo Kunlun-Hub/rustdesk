@@ -13,6 +13,7 @@ import re
 import subprocess
 import argparse
 import sys
+import tempfile
 from pathlib import Path
 
 # Captured at import, while cwd is still the repo root: before Python 3.9 the main script's __file__
@@ -53,6 +54,37 @@ def system2(cmd):
     if exit_code != 0:
         sys.stderr.write(f"Error occurred when executing: `{cmd}`. Exiting.\n")
         sys.exit(-1)
+
+
+def stage_desklink_agent(deb_root):
+    agent_deb = os.environ.get("DESKLINK_AGENT_DEB", "").strip()
+    if not agent_deb:
+        return
+
+    agent_deb = agent_deb if os.path.isabs(agent_deb) else os.path.join(REPO_ROOT, agent_deb)
+    if not os.path.isfile(agent_deb):
+        raise Exception(f"DESKLINK_AGENT_DEB not found: {agent_deb}")
+
+    install_script = os.path.join(REPO_ROOT, "res", "desklink-agent", "install.sh")
+    if not os.path.isfile(install_script):
+        raise Exception(f"desk-agent install helper not found: {install_script}")
+
+    with tempfile.TemporaryDirectory(prefix="desklink-agent-") as extracted:
+        system2(f'dpkg-deb -x "{agent_deb}" "{extracted}"')
+        agent_bin = os.path.join(extracted, "usr", "local", "bin", "hostagent")
+        agent_seed = os.path.join(extracted, "usr", "share", "hostagent", "config.seed.yaml")
+        for path in (agent_bin, agent_seed):
+            if not os.path.isfile(path):
+                raise Exception(f"unexpected hostagent package layout, missing: {path}")
+
+        dest = os.path.join(deb_root, "usr", "share", "rustdesk", "agent")
+        os.makedirs(dest, exist_ok=True)
+        shutil.copy2(agent_bin, os.path.join(dest, "hostagent"))
+        shutil.copy2(agent_seed, os.path.join(dest, "config.seed.yaml"))
+        shutil.copy2(install_script, os.path.join(dest, "install.sh"))
+        os.chmod(os.path.join(dest, "hostagent"), 0o755)
+        os.chmod(os.path.join(dest, "config.seed.yaml"), 0o600)
+        os.chmod(os.path.join(dest, "install.sh"), 0o755)
 
 
 def get_version():
@@ -720,6 +752,7 @@ def build_flutter_deb(version, features):
         'cp ../res/rustdesk-link.desktop tmpdeb/usr/share/applications/rustdesk-link.desktop')
     system2(
         "echo \"#!/bin/sh\" >> tmpdeb/usr/share/rustdesk/files/polkit && chmod a+x tmpdeb/usr/share/rustdesk/files/polkit")
+    stage_desklink_agent("tmpdeb")
     # Bundle libdrmtap.so only when this build actually enabled the `drm` feature, so stock packages
     # stay exactly what they were. The root service dlopens it in-process by absolute path.
     # `features` is the comma-joined string, so split it: a bare substring test would also match any
@@ -825,6 +858,7 @@ def build_deb_from_folder(version, binary_folder, want_drm=False):
         'cp ../res/rustdesk-link.desktop tmpdeb/usr/share/applications/rustdesk-link.desktop')
     system2(
         "echo \"#!/bin/sh\" >> tmpdeb/usr/share/rustdesk/files/polkit && chmod a+x tmpdeb/usr/share/rustdesk/files/polkit")
+    stage_desklink_agent("tmpdeb")
     # Where the capture library comes from for a `--package <folder> --drm` build. Two shapes are
     # supported, because two exist in practice: a bundle that already carries libdrmtap.so.0.*
     # (someone staged it, e.g. a CI artifact), and a plain bundle, which is what every build path

@@ -77,6 +77,12 @@ def make_parser():
         default="DeskLink",
         help="The app manufacturer.",
     )
+    parser.add_argument(
+        "--agent-setup",
+        type=str,
+        default="",
+        help="Optional desk-agent Inno Setup executable embedded into the DeskLink MSI.",
+    )
     return parser
 
 
@@ -247,6 +253,73 @@ def gen_custom_dialog_bitmaps():
         "<!--$CustomBitmapsStart$-->",
         "<!--$CustomBitmapsEnd$-->",
         func,
+    )
+
+
+def gen_desklink_agent(agent_setup):
+    if not agent_setup:
+        return True
+
+    setup_path = Path(agent_setup).expanduser().resolve()
+    if not setup_path.is_file():
+        print(f"Error: desk-agent setup not found: {setup_path}")
+        return False
+    if setup_path.suffix.lower() != ".exe":
+        print(f"Error: desk-agent setup must be an .exe: {setup_path}")
+        return False
+
+    def binary(lines, index_start):
+        indent = g_indent_unit * 3
+        source = quoteattr(str(setup_path))
+        lines.insert(
+            index_start + 1,
+            f'{indent}<Property Id="DESKLINK_HOSTAGENT_INSTALLED" Secure="yes">\n'
+            f'{indent}\t<RegistrySearch Id="DeskLinkHostAgentInstalledSearch" Root="HKLM" '
+            'Key="SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\'
+            '{8F2C5D66-1E3B-4E9A-9B1D-7A2C4F0E5B31}_is1" Name="DisplayName" '
+            'Type="raw" Bitness="always64" />\n'
+            f'{indent}</Property>\n',
+        )
+        lines.insert(
+            index_start + 1,
+            f'{g_indent_unit * 2}<Binary Id="DeskLinkAgentSetup" SourceFile={source} />\n',
+        )
+        return lines
+
+    def sequence(lines, index_start):
+        indent = g_indent_unit * 3
+        lines.insert(
+            index_start + 1,
+            f'{indent}<Custom Action="InstallDeskLinkAgent" After="InstallFiles" '
+            'Condition="NOT REMOVE AND NOT DESKLINK_HOSTAGENT_INSTALLED" />\n',
+        )
+        return lines
+
+    if not gen_content_between_tags(
+        "Package/Package.wxs",
+        "<!--$DeskLinkAgentBinaryStart$-->",
+        "<!--$DeskLinkAgentBinaryEnd$-->",
+        binary,
+    ):
+        return False
+    if not gen_content_between_tags(
+        "Package/Package.wxs",
+        "<!--$DeskLinkAgentInstallStart$-->",
+        "<!--$DeskLinkAgentInstallEnd$-->",
+        sequence,
+    ):
+        return False
+
+    custom_action = (
+        f'{g_indent_unit * 2}<CustomAction Id="InstallDeskLinkAgent" BinaryKey="DeskLinkAgentSetup" '
+        'ExeCommand="/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" '
+        'Execute="deferred" Impersonate="no" Return="check" />\n'
+    )
+    return gen_content_between_tags(
+        "Package/Package.wxs",
+        "<!--$DeskLinkAgentBinaryStart$-->",
+        "<!--$DeskLinkAgentBinaryEnd$-->",
+        lambda lines, index_start: lines.insert(index_start + 1, custom_action),
     )
 
 
@@ -473,6 +546,9 @@ if __name__ == "__main__":
         sys.exit(-1)
 
     if not gen_custom_dialog_bitmaps():
+        sys.exit(-1)
+
+    if not gen_desklink_agent(args.agent_setup):
         sys.exit(-1)
 
     replace_app_name_in_langs(args.app_name)

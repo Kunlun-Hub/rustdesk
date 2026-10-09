@@ -325,7 +325,9 @@ pub fn set_peer_flutter_option(id: String, name: String, value: String) {
 #[inline]
 pub fn set_peer_option(id: String, name: String, value: String) {
     let mut c = PeerConfig::load(&id);
-    if value.is_empty() {
+    if name == "password" {
+        c.password = value.into_bytes();
+    } else if value.is_empty() {
         c.options.remove(&name);
     } else {
         c.options.insert(name, value);

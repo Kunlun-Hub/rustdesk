@@ -72,6 +72,48 @@ protection merely to make the monitor display a larger number.
 - Online state queries use the rendezvous online endpoint. API heartbeat state
   is separate: `src/hbbs_http/sync.rs` posts to `/api/heartbeat` periodically.
 
+## DeskLink × desk-agent Integration
+
+The agreed plan moves RustDesk API capability into the desk-agent platform and
+ships both products from one installer. Decisions, the installer/uninstaller
+contract, the login-free client build with a local address book, and the endpoint
+list desk-agent must implement are recorded in
+`/root/desk-agent/docs/desklink-integration.md`.
+Read it before touching the installer, the bundled agent, or any of the client
+`/api/*` reporting paths below.
+
+Current implementation is on branch `feature/desklink-integration-phase1` in
+both repositories (not committed or pushed). Client-side behavior:
+
+- Login is disabled at the FFI boundary: `is_disable_account()` in
+  `src/flutter_ffi.rs` returns `true`. Do not re-enable the account entry point
+  for DeskLink builds; the product is login-free by design.
+- The cloud address book stays hidden because no user can log in. The local
+  address book is preserved by reusing the Favorites tab as "Address book"
+  (`flutter/lib/models/peer_tab_model.dart`) and adding a local ID / alias /
+  password entry dialog in `peer_tab_page.dart`.
+- Local password persistence goes through `set_peer_option` in
+  `src/ui_interface.rs`; `password` must be written to `PeerConfig.password`,
+  not to the generic options map.
+- The URL scheme is `desklink://` on Android, iOS, macOS and Linux
+  (`res/rustdesk-link.desktop`). Keep all four registrations in sync.
+
+Installer integration:
+
+- Linux `.deb`: `res/DEBIAN/postinst` calls the bundled
+  `/usr/share/rustdesk/agent/install.sh` when present. The agent installer
+  preserves an existing HostAgent service/binary and registers its own
+  boot-start service; uninstalling DeskLink must not stop or remove it.
+- Windows Inno: `deploy/installer/agent-setup.iss` bundles the agent setup and
+  uses `DESKLINK_AGENT_SETUP_URL` (supports `{arch}`); the MSI path
+  (`res/msi/preprocess.py`) supports `{arch}` / `{msi_arch}` and skips agent
+  reinstall when the HostAgent registry key already exists.
+- ARM64 Windows builds need an ARM64 agent package; do not reuse the x64 one.
+- Real-machine verification is still pending for Windows x64/ARM64 MSI builds,
+  Inno uninstall registry key `{8F2C5D66-1E3B-4E9A-9B1D-7A2C4F0E5B31}_is1`,
+  Linux `.deb` nested install/uninstall/reboot behavior, and browser
+  `desklink://` launch behavior.
+
 ## Submodule Workflow
 
 `libs/hbb_common` is a Git submodule, not ordinary vendored source.

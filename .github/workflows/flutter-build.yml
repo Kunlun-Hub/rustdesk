@@ -12,6 +12,11 @@ on:
       artifact-version:
         type: string
         default: "1.4.9"
+      # Skip every non-Windows job so a manual dispatch can build only the
+      # Windows Flutter client (matrix: x86_64 + aarch64 MSVC).
+      only-windows:
+        type: boolean
+        default: false
 
 # NOTE: F-Droid builder script 'flutter/build_fdroid.sh' reads environment
 # variables from this workflow!
@@ -56,9 +61,12 @@ env:
   MACOS_P12_BASE64: "${{ secrets.MACOS_P12_BASE64 }}"
   UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}-2"
+  DESKLINK_AGENT_SETUP_URL: "${{ vars.DESKLINK_AGENT_SETUP_URL }}"
+  DESKLINK_AGENT_DEB_URL: "${{ vars.DESKLINK_AGENT_DEB_URL }}"
 
 jobs:
   generate-sbom:
+    if: ${{ !inputs.only-windows }}
     runs-on: ubuntu-latest
 
     permissions:
@@ -379,6 +387,17 @@ jobs:
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2
 
+      - name: Download desk-agent installer
+        if: env.UPLOAD_ARTIFACT == 'true' && env.DESKLINK_AGENT_SETUP_URL != ''
+        shell: pwsh
+        run: |
+          $msiArch = if ('${{ matrix.job.arch }}' -eq 'aarch64') { 'ARM64' } else { 'x64' }
+          $agentUrl = $env:DESKLINK_AGENT_SETUP_URL.Replace('{arch}', '${{ matrix.job.arch }}').Replace('{msi_arch}', $msiArch)
+          if ($agentUrl -match '\{') { throw "DESKLINK_AGENT_SETUP_URL has an unknown placeholder: $agentUrl" }
+          $path = Join-Path $env:RUNNER_TEMP "desk-agent-setup-$msiArch.exe"
+          Invoke-WebRequest -Uri $agentUrl -OutFile $path
+          "DESKLINK_AGENT_SETUP=$path" | Out-File -FilePath $env:GITHUB_ENV -Append
+
       - name: Build msi
         # Builds the MSI for the matrix arch. res/msi (WiX v4 + native CustomActions) carries
         # both x64 and ARM64 platform configs; WcaUtil/DUtil ship arm64 libs. msbuild platform
@@ -386,7 +405,9 @@ jobs:
         if: env.UPLOAD_ARTIFACT == 'true'
         run: |
           pushd ./res/msi
-          python preprocess.py --arp -d ../../rustdesk
+          $agentArgs = @()
+          if ($env:DESKLINK_AGENT_SETUP) { $agentArgs += @("--agent-setup", $env:DESKLINK_AGENT_SETUP) }
+          python preprocess.py --arp -d ../../rustdesk @agentArgs
           nuget restore msi.sln
           $msiPlatform = if ('${{ matrix.job.arch }}' -eq 'aarch64') { 'ARM64' } else { 'x64' }
           msbuild msi.sln -p:Configuration=Release -p:Platform=$msiPlatform /p:TargetVersion=Windows10
@@ -412,6 +433,7 @@ jobs:
 
   # The fallback for the flutter version, we use Sciter for 32bit Windows.
   build-for-windows-sciter:
+    if: ${{ !inputs.only-windows }}
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
     # Temporarily disable this action due to additional test is needed.
@@ -563,7 +585,7 @@ jobs:
             ./SignOutput/desklink-*.exe
 
   build-rustdesk-ios:
-    if: ${{ inputs.upload-artifact }}
+    if: ${{ !inputs.only-windows && inputs.upload-artifact }}
     name: build rustdesk ios ipa
     runs-on: ${{ matrix.job.os }}
     needs: [generate-bridge]
@@ -685,6 +707,7 @@ jobs:
 
 
   build-for-macOS:
+    if: ${{ !inputs.only-windows }}
     name: ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
     needs: [generate-bridge]
@@ -910,7 +933,7 @@ jobs:
       - build-for-windows-flutter
       - build-for-windows-sciter
     runs-on: ubuntu-latest
-    if: ${{ inputs.upload-artifact }}
+    if: ${{ !inputs.only-windows && inputs.upload-artifact }}
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -948,6 +971,7 @@ jobs:
           files: desklink-${{ env.ARTIFACT_VERSION }}-unsigned.tar.gz
 
   build-rustdesk-android:
+    if: ${{ !inputs.only-windows }}
     needs: [generate-bridge]
     name: build rustdesk android apk ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
@@ -1243,7 +1267,7 @@ jobs:
   build-rustdesk-android-universal:
     needs: [build-rustdesk-android]
     name: build rustdesk android universal apk
-    if: ${{ inputs.upload-artifact }}
+    if: ${{ !inputs.only-windows && inputs.upload-artifact }}
     runs-on: ubuntu-24.04
     env:
       reltype: release
@@ -1426,6 +1450,7 @@ jobs:
             signed-apk/desklink-${{ env.ARTIFACT_VERSION }}-universal${{ env.suffix }}.apk
 
   build-rustdesk-linux:
+    if: ${{ !inputs.only-windows }}
     needs: [generate-bridge]
     name: build rustdesk linux ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.on }}
@@ -1559,6 +1584,7 @@ jobs:
           dockerRunArgs: |
             --volume "${PWD}:/workspace"
             --volume "/opt/artifacts:/opt/artifacts"
+            --env DESKLINK_AGENT_DEB_URL
           shell: /bin/bash
           install: |
             apt-get update -y
@@ -1683,6 +1709,11 @@ jobs:
             pushd /workspace
             export CARGO_INCREMENTAL=0
             export DEB_ARCH=${{ matrix.job.deb_arch }}
+            if [ -n "${DESKLINK_AGENT_DEB_URL:-}" ]; then
+              agent_url="${DESKLINK_AGENT_DEB_URL//\{arch\}/${{ matrix.job.deb_arch }}}"
+              curl -fL "$agent_url" -o /tmp/desklink-agent.deb
+              export DESKLINK_AGENT_DEB=/tmp/desklink-agent.deb
+            fi
             python3 ./build.py --flutter --skip-cargo
             for name in rustdesk*??.deb; do
               mv "$name" "desklink-${{ env.ARTIFACT_VERSION }}-${{ matrix.job.arch }}.deb"
@@ -1782,6 +1813,7 @@ jobs:
   # old for it. A separate job rather than a matrix entry of build-rustdesk-linux: appimage and
   # flatpak need that job, and a failure here must not skip them.
   build-rustdesk-linux-drm:
+    if: ${{ !inputs.only-windows }}
     needs: [generate-bridge]
     name: build rustdesk linux drm x86_64
     runs-on: ubuntu-22.04
@@ -2045,7 +2077,7 @@ jobs:
           path: ${{ env.DRM_DEB }}
 
   build-rustdesk-linux-sciter:
-    if: ${{ inputs.upload-artifact }}
+    if: ${{ !inputs.only-windows && inputs.upload-artifact }}
     runs-on: ${{ matrix.job.on }}
     name: build-rustdesk-linux-sciter ${{ matrix.job.target }}
     strategy:
@@ -2283,7 +2315,7 @@ jobs:
     name: Build appimage ${{ matrix.job.target }}
     needs: [build-rustdesk-linux]
     runs-on: ubuntu-22.04
-    if: ${{ inputs.upload-artifact }}
+    if: ${{ !inputs.only-windows && inputs.upload-artifact }}
     strategy:
       fail-fast: false
       matrix:
@@ -2345,7 +2377,7 @@ jobs:
       - build-rustdesk-linux
       - build-rustdesk-linux-sciter
     runs-on: ${{ matrix.job.on }}
-    if: ${{ inputs.upload-artifact }}
+    if: ${{ !inputs.only-windows && inputs.upload-artifact }}
     strategy:
       fail-fast: false
       matrix:
