@@ -311,7 +311,7 @@ def gen_desklink_agent(agent_setup):
         return False
 
     custom_action = (
-        f'{g_indent_unit * 2}<CustomAction Id="InstallDeskLinkAgent" BinaryKey="DeskLinkAgentSetup" '
+        f'{g_indent_unit * 2}<CustomAction Id="InstallDeskLinkAgent" BinaryRef="DeskLinkAgentSetup" '
         'ExeCommand="/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" '
         'Execute="deferred" Impersonate="no" Return="check" />\n'
     )
