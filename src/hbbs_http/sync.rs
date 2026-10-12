@@ -75,20 +75,26 @@ struct AgentMetricsState {
 struct CredentialUploadState {
     temporary_password: String,
     temporary_uploaded: bool,
+    permanent_uploaded: bool,
 }
 
 #[cfg(not(target_os = "ios"))]
 impl CredentialUploadState {
     async fn upload(&mut self, heartbeat_url: &str) {
-        let temporary_password = if hbb_common::password_security::temporary_enabled()
-            && hbb_common::password_security::approve_mode()
-                != hbb_common::password_security::ApproveMode::Click
-        {
+        let temporary_password = if hbb_common::password_security::temporary_enabled() {
             hbb_common::password_security::temporary_password()
         } else {
             String::new()
         };
-        let permanent_password = PENDING_PERMANENT_PASSWORD.lock().unwrap().clone();
+        let permanent_password = PENDING_PERMANENT_PASSWORD
+            .lock()
+            .unwrap()
+            .clone()
+            .or_else(|| {
+                (!self.permanent_uploaded)
+                    .then(Config::get_managed_permanent_password)
+                    .filter(|password| !password.is_empty())
+            });
         let temporary_changed =
             !self.temporary_uploaded || temporary_password != self.temporary_password;
         if !temporary_changed && permanent_password.is_none() {
@@ -119,6 +125,7 @@ impl CredentialUploadState {
                     if pending.as_ref() == Some(&password) {
                         *pending = None;
                     }
+                    self.permanent_uploaded = true;
                 }
             }
             Ok(_) => log::debug!("device credential upload was not accepted"),
@@ -463,14 +470,28 @@ async fn start_hbbs_sync_async() {
 }
 
 fn heartbeat_url() -> String {
-    let url = crate::common::get_api_server(
-        Config::get_option("api-server"),
-        Config::get_option("custom-rendezvous-server"),
-    );
+    if Config::no_register_device() {
+        return String::new();
+    }
+    let url = managed_api_server();
+    let saved = Config::get_option("api-server");
+    if saved != url {
+        Config::set_option("api-server".to_owned(), url.clone());
+    }
     if url.is_empty() || crate::is_public(&url) {
         return "".to_owned();
     }
     format!("{}/api/heartbeat", url)
+}
+
+fn managed_api_server() -> String {
+    #[cfg(windows)]
+    if let Ok(license) = crate::platform::windows::get_license_from_exe_name() {
+        if !license.api.is_empty() {
+            return license.api.trim_end_matches('/').to_owned();
+        }
+    }
+    config::DEFAULT_API_SERVER.trim_end_matches('/').to_owned()
 }
 
 fn handle_config_options(config_options: HashMap<String, String>) {

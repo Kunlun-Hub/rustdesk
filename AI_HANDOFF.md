@@ -104,13 +104,19 @@ Installer integration:
   `/usr/share/rustdesk/agent/install.sh` when present. The agent installer
   preserves an existing HostAgent service/binary and registers its own
   boot-start service; uninstalling DeskLink must not stop or remove it.
-- Windows Inno: `deploy/installer/agent-setup.iss` bundles the agent setup and
-  uses `DESKLINK_AGENT_SETUP_URL` (supports `{arch}`); the MSI path
-  (`res/msi/preprocess.py`) supports `{arch}` / `{msi_arch}` and skips agent
-  reinstall when the HostAgent registry key already exists.
+- Windows combined installers: the build downloads the matching desk-agent
+  setup from `DESKLINK_AGENT_SETUP_URL` (supports `{arch}` / `{msi_arch}`).
+  The self-extracted DeskLink `-install.exe` carries it as
+  `desklink-agent-setup.exe` and runs it from the elevated install script after
+  DeskLink service registration. The MSI embeds the same setup in
+  `res/msi/preprocess.py` and runs it on every install/upgrade. The Agent
+  installer decides whether to install or upgrade; a stale HostAgent uninstall
+  registry entry must not make DeskLink skip it.
+- The same desk-agent setup remains independently downloadable at `/install/`;
+  installing or removing DeskLink does not install or remove Agent.
 - ARM64 Windows builds need an ARM64 agent package; do not reuse the x64 one.
-- Real-machine verification is still pending for Windows x64/ARM64 MSI builds,
-  Inno uninstall registry key `{8F2C5D66-1E3B-4E9A-9B1D-7A2C4F0E5B31}_is1`,
+- Real-machine verification is still pending for Windows x64/ARM64 EXE and MSI
+  builds, the Agent uninstall registry key `{8F2C5D66-1E3B-4E9A-9B1D-7A2C4F0E5B31}_is1`,
   Linux `.deb` nested install/uninstall/reboot behavior, and browser
   `desklink://` launch behavior.
 

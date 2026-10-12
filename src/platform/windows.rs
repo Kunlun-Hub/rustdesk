@@ -123,6 +123,7 @@ pub const REG_NAME_INSTALL_PRINTER: &str = "PRINTER";
 const REG_NAME_MSI_PRODUCT_CODE: &str = "MsiProductCode";
 const REG_NAME_UNINSTALL_STRING: &str = "UninstallString";
 const REG_NAME_WINDOWS_INSTALLER: &str = "WindowsInstaller";
+const DESKLINK_AGENT_SETUP_FILE: &str = "desklink-agent-setup.exe";
 const MSI_WINDOWS_INSTALLER_VALUE: u32 = 1;
 const MSI_EXIT_SUCCESS_REBOOT_INITIATED: u32 = 1641;
 const MSI_EXIT_SUCCESS_REBOOT_REQUIRED: u32 = 3010;
@@ -1550,6 +1551,7 @@ fn get_after_install(
             )
         })
         .unwrap_or_default();
+    let desklink_agent_install = get_desklink_agent_install(exe);
     let reg_printer = reg_value_printer
         .map(|v| {
             format!(
@@ -1579,8 +1581,24 @@ fn get_after_install(
     netsh advfirewall firewall add rule name=\"{app_name} Service\" dir=out action=allow program=\"{exe}\" enable=yes
     netsh advfirewall firewall add rule name=\"{app_name} Service\" dir=in action=allow program=\"{exe}\" enable=yes
     {create_service}
+    {desklink_agent_install}
     reg add HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System /f /v SoftwareSASGeneration /t REG_DWORD /d 1
     ", create_service=get_create_service(&exe))
+}
+
+fn get_desklink_agent_install(exe: &str) -> String {
+    let Some(setup) = Path::new(exe).parent().and_then(|parent| {
+        parent
+            .join(DESKLINK_AGENT_SETUP_FILE)
+            .to_str()
+            .map(str::to_owned)
+    }) else {
+        return String::new();
+    };
+    if validate_install_value(&setup).is_err() {
+        return String::new();
+    }
+    format!("if exist \"{setup}\" \"{setup}\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-")
 }
 
 pub fn install_me(options: &str, path: String, silent: bool, debug: bool) -> ResultType<()> {

@@ -372,31 +372,35 @@ jobs:
           pip3 install requests argparse
           BASE_URL=${{ env.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./rustdesk/
 
-      - name: Build self-extracted executable
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2
+
+      - name: Download and stage desk-agent installer
+        if: env.UPLOAD_ARTIFACT == 'true'
+        shell: pwsh
+        run: |
+          if (-not $env:DESKLINK_AGENT_SETUP_URL) { throw "DESKLINK_AGENT_SETUP_URL is required for the combined Windows build" }
+          $msiArch = if ('${{ matrix.job.arch }}' -eq 'aarch64') { 'ARM64' } else { 'x64' }
+          $agentUrl = $env:DESKLINK_AGENT_SETUP_URL.Replace('{arch}', '${{ matrix.job.arch }}').Replace('{msi_arch}', $msiArch)
+          if ($agentUrl -match '\{') { throw "DESKLINK_AGENT_SETUP_URL has an unknown placeholder: $agentUrl" }
+          $path = Join-Path $env:RUNNER_TEMP "desk-agent-setup-$msiArch.exe"
+          Invoke-WebRequest -Uri $agentUrl -OutFile $path
+          Copy-Item -LiteralPath $path -Destination ./rustdesk/desklink-agent-setup.exe -Force
+          "DESKLINK_AGENT_SETUP=$path" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Build combined self-extracted installer
         shell: bash
         if: env.UPLOAD_ARTIFACT == 'true'
         run: |
+          test -f ./rustdesk/desklink-agent-setup.exe
           sed -i '/dpiAware/d' res/manifest.xml
           pushd ./libs/portable
           pip3 install -r requirements.txt
           python3 ./generate.py -f ../../rustdesk/ -o . -e ../../rustdesk/DeskLink.exe
           popd
           mkdir -p ./SignOutput
-          mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/desklink-${{ env.ARTIFACT_VERSION }}-${{ matrix.job.arch }}.exe
-
-      - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2
-
-      - name: Download desk-agent installer
-        if: env.UPLOAD_ARTIFACT == 'true' && env.DESKLINK_AGENT_SETUP_URL != ''
-        shell: pwsh
-        run: |
-          $msiArch = if ('${{ matrix.job.arch }}' -eq 'aarch64') { 'ARM64' } else { 'x64' }
-          $agentUrl = $env:DESKLINK_AGENT_SETUP_URL.Replace('{arch}', '${{ matrix.job.arch }}').Replace('{msi_arch}', $msiArch)
-          if ($agentUrl -match '\{') { throw "DESKLINK_AGENT_SETUP_URL has an unknown placeholder: $agentUrl" }
-          $path = Join-Path $env:RUNNER_TEMP "desk-agent-setup-$msiArch.exe"
-          Invoke-WebRequest -Uri $agentUrl -OutFile $path
-          "DESKLINK_AGENT_SETUP=$path" | Out-File -FilePath $env:GITHUB_ENV -Append
+          # The packer switches to `--install` only when the executable name ends with install.exe.
+          mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/desklink-${{ env.ARTIFACT_VERSION }}-${{ matrix.job.arch }}-install.exe
 
       - name: Build msi
         # Builds the MSI for the matrix arch. res/msi (WiX v4 + native CustomActions) carries
