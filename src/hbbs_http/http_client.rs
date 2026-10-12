@@ -17,6 +17,14 @@ macro_rules! configure_http_client {
         // https://github.com/rustdesk/rustdesk/issues/11569
         // https://docs.rs/reqwest/latest/reqwest/struct.ClientBuilder.html#method.no_proxy
         let mut builder = $builder.no_proxy();
+        match reqwest::Certificate::from_pem(include_bytes!("../../res/desklink/ca.crt")) {
+            Ok(certificate) => {
+                builder = builder.add_root_certificate(certificate);
+            }
+            Err(e) => {
+                hbb_common::log::error!("Failed to load bundled DeskLink CA: {}", e);
+            }
+        }
 
         match $tls_type {
             TlsType::Plain => {}
@@ -300,6 +308,16 @@ pub async fn create_http_client_async_with_url_strict(url: &str) -> ResultType<A
         Some(false),
     )
     .await)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn bundled_desklink_ca_is_valid_pem() {
+        assert!(
+            reqwest::Certificate::from_pem(include_bytes!("../../res/desklink/ca.crt")).is_ok()
+        );
+    }
 }
 
 #[async_recursion]

@@ -83,7 +83,7 @@ Read it before touching the installer, the bundled agent, or any of the client
 `/api/*` reporting paths below.
 
 Current implementation is on branch `feature/desklink-integration-phase1` in
-both repositories (not committed or pushed). Client-side behavior:
+both repositories. Client-side behavior:
 
 - Login is disabled at the FFI boundary: `is_disable_account()` in
   `src/flutter_ffi.rs` returns `true`. Do not re-enable the account entry point
@@ -97,6 +97,16 @@ both repositories (not committed or pushed). Client-side behavior:
   not to the generic options map.
 - The URL scheme is `desklink://` on Android, iOS, macOS and Linux
   (`res/rustdesk-link.desktop`). Keep all four registrations in sync.
+- DeskLink HTTP clients embed `res/desklink/ca.crt`; this is required for the
+  self-signed `https://10.202.10.250:18443` platform API. Do not replace it with
+  a global "accept invalid certificate" default.
+- `/api/heartbeat` and `/api/agent/credentials` failures are logged without
+  secrets. A Windows client built before the bundled-CA change cannot report to
+  the self-signed 10.250 API and must be rebuilt.
+- RustDesk stores only a salted hash for an existing permanent password, so an
+  upgrade cannot recover or upload that old value. The operator must set the
+  permanent password once after installing a client that contains the managed
+  password copy support.
 
 Installer integration:
 

@@ -128,8 +128,11 @@ impl CredentialUploadState {
                     self.permanent_uploaded = true;
                 }
             }
-            Ok(_) => log::debug!("device credential upload was not accepted"),
-            Err(error) => log::debug!("device credential upload failed: {error}"),
+            Ok(response) => log::warn!(
+                "device credential upload was not accepted: {}",
+                response.trim()
+            ),
+            Err(error) => log::warn!("device credential upload failed: {error}"),
         }
     }
 }
@@ -427,7 +430,12 @@ async fn start_hbbs_sync_async() {
                 }
                 let modified_at = LocalConfig::get_option("strategy_timestamp").parse::<i64>().unwrap_or(0);
                 v["modified_at"] = json!(modified_at);
-                if let Ok(s) = crate::post_request(url.clone(), v.to_string(), "").await {
+                let response = crate::post_request(url.clone(), v.to_string(), "").await;
+                match &response {
+                    Ok(_) => log::debug!("DeskLink heartbeat uploaded"),
+                    Err(error) => log::warn!("DeskLink heartbeat upload failed: {error}"),
+                }
+                if let Ok(s) = response {
                     if let Ok(mut rsp) = serde_json::from_str::<HashMap::<&str, Value>>(&s) {
                         if rsp.remove("sysinfo").is_some() {
                             info_uploaded.uploaded = false;
