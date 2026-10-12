@@ -132,20 +132,21 @@ Installer integration:
 
 ## Latest Release
 
-`phase1-report-fix` was built from rustdesk commit `a0b3f2669` with desk-agent
-`1.0.1-desklink.1` (commit `7bf2696`). GitHub Actions run `38247590973`
+`phase1-fixes5` was built from rustdesk commit `6b72202c8` with desk-agent
+`1.0.1-desklink.1` (commit `7bf2696`). GitHub Actions run `38253251513`
 completed successfully for Windows x64 and ARM64. The EXE and MSI payloads were
 verified to contain the exact independently published Agent installers:
 
 - Agent x64: `0890d3944abec63145e797307c25735ed49abd99e6e91366e152197fed7af3e9`
 - Agent ARM64: `936c93d0c4608a6946737e08fac0c2bce62139736d200876ae4e06d8ba02445e`
-- Installer x64: `b4be05fa08a28a141389e991b2efc495b2886863ceffcb563775d91eaf721567`
-- Installer ARM64: `3ff66c8f72687a89f51c4b0a40c4016d0cfb05697f19881522f32f658407f367`
+- Installer x64: `717d1fb46682ffdb59052fe5826fdf96b2409694a148a6bc65442b286d57be4c`
+- Installer ARM64: `f1c3262901e623b43899e0331c5bc63551ba0b43b91bb1339bba7606b567142c`
 
 The `/install/` page now serves the same `1.0.1-desklink.1` Agent for Windows
-and Linux. Because older RustDesk builds retained only a salted permanent
-password hash, an upgraded machine must set the permanent password once before
-it can report that value.
+and Linux. This release also makes the Windows EXE uninstaller delete
+`%APPDATA%\DeskLink`; upgrades keep the configuration. Because older RustDesk
+builds retained only a salted permanent password hash, an upgraded machine must
+set the permanent password once before it can report that value.
 
 ## Submodule Workflow
 
