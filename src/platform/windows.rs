@@ -1866,6 +1866,7 @@ fn get_uninstall(kill_self: bool, uninstall_printer: bool) -> ResultType<String>
     {uninstall_cert_cmd}
     reg delete {subkey} /f
     {uninstall_amyuni_idd}
+    if exist \"%APPDATA%\\{app_name}\" rd /s /q \"%APPDATA%\\{app_name}\"
     if exist \"{path}\" rd /s /q \"{path}\"
     if exist \"{start_menu}\" rd /s /q \"{start_menu}\"
     if exist \"%PUBLIC%\\Desktop\\{app_name}.lnk\" del /f /q \"%PUBLIC%\\Desktop\\{app_name}.lnk\"
