@@ -273,15 +273,6 @@ def gen_desklink_agent(agent_setup):
         source = quoteattr(str(setup_path))
         lines.insert(
             index_start + 1,
-            f'{indent}<Property Id="DESKLINK_HOSTAGENT_INSTALLED" Secure="yes">\n'
-            f'{indent}\t<RegistrySearch Id="DeskLinkHostAgentInstalledSearch" Root="HKLM" '
-            'Key="SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\'
-            '{8F2C5D66-1E3B-4E9A-9B1D-7A2C4F0E5B31}_is1" Name="DisplayName" '
-            'Type="raw" Bitness="always64" />\n'
-            f'{indent}</Property>\n',
-        )
-        lines.insert(
-            index_start + 1,
             f'{g_indent_unit * 2}<Binary Id="DeskLinkAgentSetup" SourceFile={source} />\n',
         )
         return lines
@@ -291,7 +282,7 @@ def gen_desklink_agent(agent_setup):
         lines.insert(
             index_start + 1,
             f'{indent}<Custom Action="InstallDeskLinkAgent" After="InstallFiles" '
-            'Condition="NOT REMOVE AND NOT DESKLINK_HOSTAGENT_INSTALLED" />\n',
+            'Condition="NOT REMOVE" />\n',
         )
         return lines
 

@@ -11,6 +11,7 @@
 #include "./Common.h"
 
 #pragma comment(lib, "Shlwapi.lib")
+#pragma comment(lib, "Shell32.lib")
 
 UINT __stdcall CustomActionHello(
     __in MSIHANDLE hInstall)
@@ -160,6 +161,99 @@ BOOL DeleteRuntimeGeneratedFile(LPCWSTR installFolder, LPCWSTR fileName)
     ClearReadOnlyAttribute(fullPath, attributes);
     WcaLog(LOGMSG_STANDARD, "Runtime cleanup deleting '%ls'.", fullPath);
     return SafeDeleteItem(fullPath);
+}
+
+BOOL RemoveDirectoryTree(LPCWSTR folderPath)
+{
+    if (folderPath == NULL || folderPath[0] == L'\0')
+    {
+        return TRUE;
+    }
+
+    DWORD attributes = GetFileAttributesW(folderPath);
+    if (attributes == INVALID_FILE_ATTRIBUTES)
+    {
+        DWORD error = GetLastError();
+        return error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND;
+    }
+    if (!(attributes & FILE_ATTRIBUTE_DIRECTORY))
+    {
+        WcaLog(LOGMSG_STANDARD, "DeskLink config cleanup skipped non-directory '%ls'.", folderPath);
+        return FALSE;
+    }
+    if (PathIsRootW(folderPath))
+    {
+        WcaLog(LOGMSG_STANDARD, "Refusing to delete root directory '%ls'.", folderPath);
+        return FALSE;
+    }
+
+    WCHAR normalized[MAX_PATH] = { 0 };
+    if (GetFullPathNameW(folderPath, MAX_PATH, normalized, NULL) == 0 || PathIsRootW(normalized))
+    {
+        WcaLog(LOGMSG_STANDARD, "Refusing unsafe DeskLink config path '%ls'.", folderPath);
+        return FALSE;
+    }
+
+    size_t length = 0;
+    HRESULT hr = StringCchLengthW(normalized, MAX_PATH, &length);
+    if (FAILED(hr) || length == 0)
+    {
+        return FALSE;
+    }
+    while (length > 3 && (normalized[length - 1] == L'\\' || normalized[length - 1] == L'/'))
+    {
+        normalized[--length] = L'\0';
+    }
+
+    WCHAR from[MAX_PATH + 2] = { 0 };
+    hr = StringCchCopyW(from, MAX_PATH + 2, normalized);
+    if (FAILED(hr))
+    {
+        return FALSE;
+    }
+    from[length + 1] = L'\0';
+
+    SHFILEOPSTRUCTW operation = { 0 };
+    operation.wFunc = FO_DELETE;
+    operation.pFrom = from;
+    operation.fFlags = FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT;
+    int result = SHFileOperationW(&operation);
+    if (result != 0 || operation.fAnyOperationsAborted)
+    {
+        WcaLog(
+            LOGMSG_STANDARD,
+            "DeskLink config cleanup failed for '%ls': result=%d aborted=%d.",
+            normalized,
+            result,
+            operation.fAnyOperationsAborted
+        );
+        return FALSE;
+    }
+    WcaLog(LOGMSG_STANDARD, "Removed DeskLink config directory '%ls'.", normalized);
+    return TRUE;
+}
+
+UINT __stdcall RemoveDeskLinkConfig(
+    __in MSIHANDLE hInstall)
+{
+    HRESULT hr = S_OK;
+    LPWSTR configFolder = NULL;
+    LPWSTR pwz = NULL;
+    LPWSTR pwzData = NULL;
+
+    hr = WcaInitialize(hInstall, "RemoveDeskLinkConfig");
+    ExitOnFailure(hr, "Failed to initialize");
+    hr = WcaGetProperty(L"CustomActionData", &pwzData);
+    ExitOnFailure(hr, "failed to get CustomActionData");
+
+    pwz = pwzData;
+    hr = WcaReadStringFromCaData(&pwz, &configFolder);
+    ExitOnFailure(hr, "failed to read config folder from custom action data");
+    RemoveDirectoryTree(configFolder);
+
+LExit:
+    ReleaseStr(pwzData);
+    return WcaFinalize(SUCCEEDED(hr) ? ERROR_SUCCESS : ERROR_INSTALL_FAILURE);
 }
 
 // See `Package.wxs` for the sequence of this custom action.

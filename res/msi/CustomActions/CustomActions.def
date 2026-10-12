@@ -3,6 +3,7 @@ LIBRARY "CustomActions"
 EXPORTS
     CustomActionHello
     RemoveRuntimeGeneratedFiles
+    RemoveDeskLinkConfig
     TerminateProcesses
     AddFirewallRules
     SetPropertyIsServiceRunning
