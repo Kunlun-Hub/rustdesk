@@ -25,10 +25,14 @@ is still current.
 
 The branded defaults live in `libs/hbb_common/src/config.rs`:
 
-- API: `http://10.202.22.90:21114`
-- ID server: `10.202.22.90:21116`
-- Relay: `10.202.22.90:21117`
-- Public key: `I17NeGkLtixLRMrtxXvY5jQ3gDiL8yqtktCrMVwb69I=`
+- API: `https://10.202.22.91`
+- ID server: `10.202.22.91:21116`
+- Relay: `10.202.22.91:21117`
+- Public key: `8LygoZ54ARtfKmpX+wd5FfOrNPEl4CGueVFQUTjl57k=`
+
+The retired `10.202.10.250` / `10.202.22.90` hosts must never come back as
+defaults; see "Installer: retiring the old client and its servers" for the
+upgrade path that removes them from machines that already saved them.
 - View style: `adaptive` (Fit window)
 - Image mode: `custom`
 - Image quality: `85`
@@ -180,6 +184,14 @@ dialled `10.250` until the cache was dropped.
 
 A user-configured server survives: it lives in the `custom-rendezvous-server`
 option, which is only dropped when it names a retired host.
+
+## Rebuilding only the non-Windows packages
+
+`flutter-tag.yml` (workflow_dispatch) forwards `skip-windows` to
+`flutter-build.yml`. Dispatching with `upload-tag=<tag>` and
+`skip-windows=true` rebuilds the Linux/Android/Apple packages under an existing
+tag without re-uploading the Windows installer, which is how the `.deb` is
+refreshed after a Windows-only release. `only-windows=true` is the mirror case.
 
 ## Submodule Workflow
 
