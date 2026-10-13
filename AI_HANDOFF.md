@@ -148,6 +148,39 @@ and Linux. This release also makes the Windows EXE uninstaller delete
 builds retained only a salted permanent password hash, an upgraded machine must
 set the permanent password once before it can report that value.
 
+## Installer: retiring the old client and its servers
+
+An upgrade keeps saved settings by design, which is what broke the first phase-1
+rollout: clients installed from the intermediate build kept `10.202.10.250` as
+their ID/relay server (and the matching rendezvous key) even though the API
+server had already moved to `10.202.22.91`. The symptom is a remote session
+that reports "ID does not exist" while the device is listed on the platform,
+because the client registers on the retired server.
+
+Install now clears that state, on every install and upgrade:
+
+- `install_me` in `src/platform/windows.rs` calls `clear_legacy_server_options`
+  (drops `custom-rendezvous-server` / `relay-server` / `api-server` /
+  `rendezvous-servers` options that name a retired host, drops any `key` that is
+  not `RS_PUB_KEY`, and clears the cached `rendezvous_server` through the new
+  `Config::clear_rendezvous_server` in `hbb_common`) and prepends
+  `get_legacy_rustdesk_cleanup` to the install script, which stops and deletes a
+  leftover standalone client service and its per-user, service-account and
+  machine-wide config folders.
+- The MSI does the same in the `CleanLegacyRustDesk` custom action
+  (`res/msi/CustomActions/CustomActions.cpp`), scheduled before `InstallFiles`.
+  Its legacy name is assembled from characters because `preprocess.py` rewrites
+  the literal product word in that file.
+- `res/DEBIAN/postinst` strips the same retired settings from the client config
+  of `root` and every home directory.
+
+The cached `rendezvous_server` matters most: `get_rendezvous_server` prefers it
+over the built-in defaults, so a client whose options were already correct still
+dialled `10.250` until the cache was dropped.
+
+A user-configured server survives: it lives in the `custom-rendezvous-server`
+option, which is only dropped when it names a retired host.
+
 ## Submodule Workflow
 
 `libs/hbb_common` is a Git submodule, not ordinary vendored source.

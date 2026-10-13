@@ -1608,6 +1608,13 @@ pub fn install_me(options: &str, path: String, silent: bool, debug: bool) -> Res
         bail!("Cannot install the EXE package over an existing MSI installation");
     }
     let uninstall_str = get_uninstall(false, false)?;
+    // Preview DeskLink builds pinned the retired 10.250 / 22.90 servers in the
+    // saved options, and a leftover RustDesk install keeps its own service and
+    // config folder. Both make the freshly installed client register on the
+    // wrong rendezvous server, which surfaces as "ID does not exist" even
+    // though the device is listed on the platform.
+    clear_legacy_server_options();
+    let legacy_cleanup = get_legacy_rustdesk_cleanup();
     let mut path = path.trim_end_matches('\\').to_owned();
     let (subkey, _path, start_menu, exe) = get_default_install_info();
     let mut exe = exe;
@@ -1743,6 +1750,7 @@ copy /Y \"{tmp_path}\\{app_name} Tray.lnk\" \"%PROGRAMDATA%\\Microsoft\\Windows\
     let cmds = format!(
         "
 {uninstall_str}
+{legacy_cleanup}
 chcp 65001
 md \"{path}\"
 {copy_exe}
@@ -1825,6 +1833,64 @@ fn get_before_uninstall(kill_self: bool) -> String {
     ",
         broker_exe = WIN_TOPMOST_INJECTED_PROCESS_EXE,
     )
+}
+
+/// Hosts used by retired DeskLink preview builds and by the standalone RustDesk
+/// product. Saved options pointing at them must be dropped on install.
+const LEGACY_SERVER_HOSTS: &[&str] = &["10.202.10.250", "10.202.22.90"];
+
+/// Drops saved server options that point at retired hosts, and any saved
+/// `key` that is not the one this build trusts. Without this an upgraded
+/// client keeps talking to the old rendezvous server and reports
+/// "ID does not exist" for peers that are registered on the DeskLink server.
+fn clear_legacy_server_options() {
+    for k in [
+        "custom-rendezvous-server",
+        "relay-server",
+        "api-server",
+        "rendezvous-servers",
+    ] {
+        let v = Config::get_option(k);
+        if !v.is_empty() && LEGACY_SERVER_HOSTS.iter().any(|h| v.contains(h)) {
+            log::info!("install: clear legacy option {k} = {v}");
+            Config::set_option(k.to_owned(), "".to_owned());
+        }
+    }
+    let key = Config::get_option("key");
+    if !key.is_empty() && key != config::RS_PUB_KEY {
+        log::info!("install: clear legacy rendezvous key");
+        Config::set_option("key".to_owned(), "".to_owned());
+    }
+    // The cached server outlives the options: earlier builds wrote the host
+    // into the config struct, and `get_rendezvous_server` prefers it over the
+    // built-in defaults, so a client with no custom option still dials 10.250.
+    let cached = Config::get_rendezvous_server();
+    if LEGACY_SERVER_HOSTS.iter().any(|h| cached.contains(h)) {
+        Config::clear_rendezvous_server();
+    }
+}
+
+/// Removes a standalone RustDesk installation (service, registry, program
+/// files, per-user and service-account config) so it cannot shadow the
+/// DeskLink client with its own ID and server settings.
+fn get_legacy_rustdesk_cleanup() -> String {
+    if crate::get_app_name() == "RustDesk" {
+        return "".to_owned();
+    }
+    "
+sc stop RustDesk
+sc delete RustDesk
+taskkill /F /IM rustdesk.exe
+reg delete \"HKLM\\SYSTEM\\CurrentControlSet\\Services\\RustDesk\" /f
+reg delete \"HKCU\\Software\\RustDesk\" /f
+if exist \"%APPDATA%\\RustDesk\" rd /s /q \"%APPDATA%\\RustDesk\"
+if exist \"%LOCALAPPDATA%\\RustDesk\" rd /s /q \"%LOCALAPPDATA%\\RustDesk\"
+if exist \"%ProgramData%\\RustDesk\" rd /s /q \"%ProgramData%\\RustDesk\"
+if exist \"%ProgramFiles%\\RustDesk\" rd /s /q \"%ProgramFiles%\\RustDesk\"
+if exist \"%ProgramFiles(x86)%\\RustDesk\" rd /s /q \"%ProgramFiles(x86)%\\RustDesk\"
+if exist \"%SystemRoot%\\ServiceProfiles\\LocalService\\AppData\\Roaming\\RustDesk\" rd /s /q \"%SystemRoot%\\ServiceProfiles\\LocalService\\AppData\\Roaming\\RustDesk\"
+"
+    .to_owned()
 }
 
 /// Constructs the uninstall command string for the application.

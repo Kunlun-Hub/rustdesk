@@ -7,6 +7,7 @@
 			<CustomAction Id="CustomActionHello" DllEntry="CustomActionHello" Impersonate="yes" Execute="immediate" Return="ignore" BinaryRef="Custom_Actions_Dll"/>
 			<CustomAction Id="RemoveRuntimeGeneratedFiles" DllEntry="RemoveRuntimeGeneratedFiles" Impersonate="no" Execute="deferred" Return="ignore" BinaryRef="Custom_Actions_Dll"/>
 			<CustomAction Id="RemoveDeskLinkConfig" DllEntry="RemoveDeskLinkConfig" Impersonate="yes" Execute="deferred" Return="ignore" BinaryRef="Custom_Actions_Dll"/>
+		<CustomAction Id="CleanLegacyRustDesk" DllEntry="CleanLegacyRustDesk" Impersonate="yes" Execute="deferred" Return="ignore" BinaryRef="Custom_Actions_Dll"/>
 		<CustomAction Id="TerminateProcesses" DllEntry="TerminateProcesses" Impersonate="yes" Execute="immediate" Return="ignore" BinaryRef="Custom_Actions_Dll"/>
 		<CustomAction Id="TerminateBrokers" DllEntry="TerminateProcesses" Impersonate="yes" Execute="immediate" Return="ignore" BinaryRef="Custom_Actions_Dll"/>
 		<CustomAction Id="AddFirewallRules" DllEntry="AddFirewallRules" Impersonate="no" Execute="deferred" Return="ignore" BinaryRef="Custom_Actions_Dll"/>

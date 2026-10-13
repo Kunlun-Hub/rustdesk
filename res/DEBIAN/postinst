@@ -25,6 +25,24 @@ if [ "$1" = configure ]; then
 		systemctl start rustdesk
 	fi
 
+	# Retired preview builds pinned the 10.250 / 22.90 servers in the client
+	# config, and a standalone client install kept its own ID there. Strip those
+	# settings so the built-in DeskLink server is used again.
+	strip_legacy_server_options() {
+		cfg="$1"
+		[ -f "$cfg" ] || return 0
+		grep -q -E '10\.202\.10\.250|10\.202\.22\.90|BTSnrz|I17NeGkLtixLRMrtxXvY5jQ3gDiL8yqtktCrMVwb69I=' "$cfg" || return 0
+		sed -i -E "/^(rendezvous_server|custom-rendezvous-server|relay-server|api-server|rendezvous-servers)[[:space:]]*=/d; /^key[[:space:]]*=[[:space:]]*'(BTSnrz[^']*|I17NeGkLtixLRMrtxXvY5jQ3gDiL8yqtktCrMVwb69I=)'/d" "$cfg"
+	}
+
+	for home in /root /home/*; do
+		for name in rustdesk RustDesk DeskLink; do
+			for cfg in rustdesk2.toml RustDesk2.toml DeskLink2.toml; do
+				strip_legacy_server_options "$home/.config/$name/$cfg"
+			done
+		done
+	done
+
 	if [ -x /usr/share/rustdesk/agent/install.sh ]; then
 		/usr/share/rustdesk/agent/install.sh || {
 			echo "desklink-agent: bundled agent installation failed" >&2
