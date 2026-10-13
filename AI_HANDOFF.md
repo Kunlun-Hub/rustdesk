@@ -8,15 +8,22 @@ upstream RustDesk repository and must not receive DeskLink product changes.
 
 ## Current Release
 
-- Latest release tag before cursor-track work: `zto57`
-- Release: `https://github.com/Kunlun-Hub/rustdesk/releases/tag/zto57`
-- Successful workflow run: `33646246438`
-- Release commit: `41ccb154bbd6f41b63203760be3d0cfad65556ee`
-- `libs/hbb_common` commit in that release:
-  `99ff3f1b04bc398de5bd554733f41948e7fd066b`
-- The release has 26 successful jobs, one expected skipped job, and no failures.
-- All installable assets use the `desklink-zto57-*` prefix. `desklink.sbom.json`
+- Latest release tag: `zto64`
+- Release: `https://github.com/Kunlun-Hub/rustdesk/releases/tag/zto64`
+- Windows workflow run `38385293963` (`only-windows`, commit `f6b481ff8`);
+  the non-Windows packages come from run `38391634131` (`skip-windows`, commit
+  `8fefcd4f4`), which reuses the same tag.
+- Product commit: `f6b481ff8`; `libs/hbb_common` commit: `ef932e9`
+- Deployed on the DeskLink `/install/` page (10.202.22.91) as the combined
+  DeskLink + Agent package:
+  - `desklink-zto64-x86_64-install.exe` 28,876,288 B,
+    `aebc7ad068e1b0f7bf2856df9abd82b6b65a4855ae7ef136980f261351e0d0dc`
+  - `desklink-zto64-x86_64.deb` 26,775,028 B,
+    `9db40bc58b7c822282236533146a7d3e6f8516dda6190711566aef910ee65159`
+- All installable assets use the `desklink-zto64-*` prefix. `desklink.sbom.json`
   is metadata and is the only intentional naming exception.
+- The retired `phase1-*` tags are superseded. They are only kept as intermediate
+  builds; do not hand them out as the DeskLink package.
 
 Treat this section as a snapshot. Verify GitHub and Git state before claiming it
 is still current.
