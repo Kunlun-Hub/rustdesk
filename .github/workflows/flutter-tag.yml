@@ -13,6 +13,11 @@ on:
         type: boolean
         required: false
         default: false
+      skip-windows:
+        description: "Skip the Windows jobs (rebuild only the non-Windows packages)"
+        type: boolean
+        required: false
+        default: false
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
@@ -30,3 +35,4 @@ jobs:
       upload-tag: ${{ inputs.upload-tag || github.ref_name }}
       artifact-version: ${{ inputs.upload-tag || github.ref_name }}
       only-windows: ${{ inputs.only-windows == true }}
+      skip-windows: ${{ inputs.skip-windows == true }}

@@ -17,6 +17,12 @@ on:
       only-windows:
         type: boolean
         default: false
+      # Skip every Windows job so a manual dispatch can rebuild only the
+      # non-Windows packages (e.g. refresh the Linux .deb) under an existing
+      # tag without re-uploading the Windows installer.
+      skip-windows:
+        type: boolean
+        default: false
 
 # NOTE: F-Droid builder script 'flutter/build_fdroid.sh' reads environment
 # variables from this workflow!
@@ -98,6 +104,7 @@ jobs:
     uses: ./.github/workflows/bridge.yml
 
   build-RustDeskTempTopMostWindow:
+    if: ${{ !inputs.skip-windows }}
     uses: ./.github/workflows/third-party-RustDeskTempTopMostWindow.yml
     strategy:
       fail-fast: false
@@ -119,6 +126,7 @@ jobs:
       target_version: Windows10
 
   build-for-windows-flutter:
+    if: ${{ !inputs.skip-windows }}
     name: ${{ matrix.job.target }}
     needs: [build-RustDeskTempTopMostWindow, generate-bridge]
     runs-on: ${{ matrix.job.os }}
@@ -437,7 +445,7 @@ jobs:
 
   # The fallback for the flutter version, we use Sciter for 32bit Windows.
   build-for-windows-sciter:
-    if: ${{ !inputs.only-windows }}
+    if: ${{ !inputs.only-windows && !inputs.skip-windows }}
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
     # Temporarily disable this action due to additional test is needed.
