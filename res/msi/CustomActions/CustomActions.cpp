@@ -1165,27 +1165,34 @@ LExit:
 // exist" for peers that are registered on the DeskLink server.
 //
 // preprocess.py rewrites the literal product word in this file to the branded
-// app name, so the legacy name is assembled at runtime instead of written out.
-const wchar_t LEGACY_APP[] = { L'R', L'u', L's', L't', L'D', L'e', L's', L'k', L'\0' };
-const wchar_t LEGACY_EXE[] = { L'r', L'u', L's', L't', L'd', L'e', L's', L'k', L'.', L'e', L'x', L'e', L'\0' };
+// app name, so the legacy name is assembled from characters instead of being
+// written out.
+const wchar_t LEGACY_APP_NAME[] = { L'R', L'u', L's', L't', L'D', L'e', L's', L'k', L'\0' };
+const wchar_t LEGACY_APP_EXE[] = { L'r', L'u', L's', L't', L'd', L'e', L's', L'k', L'.', L'e', L'x', L'e', L'\0' };
 
-const LPCWSTR LEGACY_SERVER_HOSTS[] = {
-    L"10.202.10.250",
-    L"10.202.22.90",
+const char* const LEGACY_OPTION_NAMES[] = {
+    "custom-rendezvous-server",
+    "relay-server",
+    "api-server",
+    "rendezvous-servers",
+    "rendezvous_server",
 };
 
-const LPCWSTR LEGACY_SERVER_KEYS[] = {
-    // Rendezvous key of the retired 10.250 server.
-    L"BTSnrz",
-    // Rendezvous key of the retired 10.202.22.90 server.
-    L"I17NeGkLtixLRMrtxXvY5jQ3gDiL8yqtktCrMVwb69I=",
+const char* const LEGACY_SERVER_HOSTS[] = {
+    "10.202.10.250",
+    "10.202.22.90",
 };
 
-bool ContainsAnyNeedle(LPCWSTR value, const LPCWSTR* needles, size_t count)
+const char* const LEGACY_SERVER_KEYS[] = {
+    "BTSnrz",
+    "I17NeGkLtixLRMrtxXvY5jQ3gDiL8yqtktCrMVwb69I=",
+};
+
+bool ContainsAny(const std::string& value, const char* const* needles, size_t count)
 {
     for (size_t i = 0; i < count; ++i)
     {
-        if (wcsstr(value, needles[i]) != NULL)
+        if (value.find(needles[i]) != std::string::npos)
         {
             return true;
         }
@@ -1193,8 +1200,8 @@ bool ContainsAnyNeedle(LPCWSTR value, const LPCWSTR* needles, size_t count)
     return false;
 }
 
-// Drops the saved options that pin a retired host, so the built-in defaults
-// take over on the next start. The cached `rendezvous_server` at the top of
+// Drops the saved settings that pin a retired host, so the built-in defaults
+// take over on the next start. The cached `rendezvous_server` near the top of
 // the file outranks the defaults and has to go as well.
 void StripLegacyServerOptions(LPCWSTR configFile)
 {
@@ -1212,69 +1219,52 @@ void StripLegacyServerOptions(LPCWSTR configFile)
     }
 
     DWORD size = GetFileSize(file, NULL);
-    if (size == INVALID_FILE_SIZE || size == 0 || size > 8 * 1024 * 1024)
+    if (size == INVALID_FILE_SIZE || size == 0 || size > 8u * 1024u * 1024u)
     {
         CloseHandle(file);
         return;
     }
 
-    std::string data(size, '\0');
+    std::string data;
+    data.resize(size);
     DWORD read = 0;
-    if (!ReadFile(file, &data[0], size, &read, NULL))
+    if (!ReadFile(file, &data[0], size, &read, NULL) || read != size)
     {
         CloseHandle(file);
         return;
     }
-    data.resize(read);
-
-    const char* optionKeys[] = {
-        "custom-rendezvous-server",
-        "relay-server",
-        "api-server",
-        "rendezvous-servers",
-        "rendezvous_server",
-    };
 
     std::string output;
     bool dropped = false;
     size_t start = 0;
-    while (start <= data.size())
+    for (;;)
     {
         size_t end = data.find('\n', start);
-        std::string line = data.substr(
-            start,
-            end == std::string::npos ? std::string::npos : end - start);
         bool last = end == std::string::npos;
+        std::string line = data.substr(start, last ? std::string::npos : end - start);
         start = last ? data.size() + 1 : end + 1;
 
-        std::wstring wide(line.begin(), line.end());
-        const wchar_t* eq = wcschr(wide.c_str(), L'=');
         bool drop = false;
-        if (eq != NULL)
+        size_t eq = line.find('=');
+        if (eq != std::string::npos)
         {
-            std::wstring key(wide.c_str(), eq - wide.c_str());
-            while (!key.empty() && (key.back() == L' ' || key.back() == L'\t'))
+            std::string key = line.substr(0, eq);
+            while (!key.empty() && (key[key.size() - 1] == ' ' || key[key.size() - 1] == '\t'))
             {
-                key.pop_back();
+                key.erase(key.size() - 1);
             }
-            std::wstring value(eq + 1);
-            bool isServerOption = false;
-            for (size_t i = 0; i < _countof(optionKeys); ++i)
+            std::string value = line.substr(eq + 1);
+            for (size_t i = 0; i < _countof(LEGACY_OPTION_NAMES); ++i)
             {
-                std::wstring candidate(optionKeys[i], optionKeys[i] + strlen(optionKeys[i]));
-                if (key == candidate)
+                if (key == LEGACY_OPTION_NAMES[i] &&
+                    ContainsAny(value, LEGACY_SERVER_HOSTS, _countof(LEGACY_SERVER_HOSTS)))
                 {
-                    isServerOption = true;
+                    drop = true;
                     break;
                 }
             }
-            if (isServerOption &&
-                ContainsAnyNeedle(value.c_str(), LEGACY_SERVER_HOSTS, _countof(LEGACY_SERVER_HOSTS)))
-            {
-                drop = true;
-            }
-            else if (key == L"key" &&
-                     ContainsAnyNeedle(value.c_str(), LEGACY_SERVER_KEYS, _countof(LEGACY_SERVER_KEYS)))
+            if (!drop && key == "key" &&
+                ContainsAny(value, LEGACY_SERVER_KEYS, _countof(LEGACY_SERVER_KEYS)))
             {
                 drop = true;
             }
@@ -1283,29 +1273,27 @@ void StripLegacyServerOptions(LPCWSTR configFile)
         if (drop)
         {
             dropped = true;
-            WcaLog(LOGMSG_STANDARD, "Dropping retired server setting from '%ls'.", configFile);
         }
         else
         {
             output += line;
             output += "\r\n";
         }
+
         if (last)
         {
             break;
         }
     }
 
-    if (!dropped)
+    if (dropped)
     {
-        CloseHandle(file);
-        return;
+        SetFilePointer(file, 0, NULL, FILE_BEGIN);
+        SetEndOfFile(file);
+        DWORD written = 0;
+        WriteFile(file, output.c_str(), (DWORD)output.size(), &written, NULL);
+        WcaLog(LOGMSG_STANDARD, "Dropped retired server settings from the DeskLink config.");
     }
-
-    SetFilePointer(file, 0, NULL, FILE_BEGIN);
-    SetEndOfFile(file);
-    DWORD written = 0;
-    WriteFile(file, output.data(), (DWORD)output.size(), &written, NULL);
     CloseHandle(file);
 }
 
@@ -1313,59 +1301,56 @@ UINT __stdcall CleanLegacyRustDesk(
     __in MSIHANDLE hInstall)
 {
     HRESULT hr = S_OK;
+    // Declared before the first ExitOnFailure: that macro jumps to LExit, and
+    // C++ forbids a goto that skips a variable initialization.
+    WCHAR base[MAX_PATH] = { 0 };
+    WCHAR path[MAX_PATH + 64] = { 0 };
+    WCHAR regPath[MAX_PATH] = { 0 };
+    const wchar_t* envNames[] = { L"APPDATA", L"LOCALAPPDATA", L"ProgramData", L"ProgramFiles", L"ProgramFiles(x86)" };
 
     hr = WcaInitialize(hInstall, "CleanLegacyRustDesk");
     ExitOnFailure(hr, "Failed to initialize");
 
-    MyStopServiceW(LEGACY_APP);
-    MyDeleteServiceW(LEGACY_APP);
-    TerminateProcessesByNameW(LEGACY_EXE, L"--not-in-use");
+    MyStopServiceW(LEGACY_APP_NAME);
+    MyDeleteServiceW(LEGACY_APP_NAME);
+    TerminateProcessesByNameW(LEGACY_APP_EXE, L"--not-in-use");
 
-    WCHAR base[MAX_PATH] = { 0 };
-    WCHAR path[MAX_PATH + 64] = { 0 };
-
-    LPCWSTR envs[] = { L"APPDATA", L"LOCALAPPDATA", L"ProgramData", L"ProgramFiles", L"ProgramFiles(x86)" };
-    for (size_t i = 0; i < _countof(envs); ++i)
+    for (size_t i = 0; i < _countof(envNames); ++i)
     {
-        if (GetEnvironmentVariableW(envs[i], base, _countof(base)) != 0)
-        {
-            if (SUCCEEDED(StringCchPrintfW(path, _countof(path), L"%ls\\%ls", base, LEGACY_APP)))
-            {
-                RemoveDirectoryTree(path);
-            }
-        }
-    }
-
-    if (GetEnvironmentVariableW(L"SystemRoot", base, _countof(base)) != 0)
-    {
-        if (SUCCEEDED(StringCchPrintfW(
-                path,
-                _countof(path),
-                L"%ls\\ServiceProfiles\\LocalService\\AppData\\Roaming\\%ls",
-                base,
-                LEGACY_APP)))
+        base[0] = L'\0';
+        if (GetEnvironmentVariableW(envNames[i], base, _countof(base)) != 0 &&
+            SUCCEEDED(StringCchPrintfW(path, _countof(path), L"%ls\\%ls", base, LEGACY_APP_NAME)))
         {
             RemoveDirectoryTree(path);
         }
     }
 
-    WCHAR serviceKey[MAX_PATH] = { 0 };
-    if (SUCCEEDED(StringCchPrintfW(serviceKey, _countof(serviceKey), L"SYSTEM\\CurrentControlSet\\Services\\%ls", LEGACY_APP)))
+    base[0] = L'\0';
+    if (GetEnvironmentVariableW(L"SystemRoot", base, _countof(base)) != 0 &&
+        SUCCEEDED(StringCchPrintfW(
+            path,
+            _countof(path),
+            L"%ls\\ServiceProfiles\\LocalService\\AppData\\Roaming\\%ls",
+            base,
+            LEGACY_APP_NAME)))
     {
-        SHDeleteKeyW(HKEY_LOCAL_MACHINE, serviceKey);
-    }
-    WCHAR userKey[MAX_PATH] = { 0 };
-    if (SUCCEEDED(StringCchPrintfW(userKey, _countof(userKey), L"Software\\%ls", LEGACY_APP)))
-    {
-        SHDeleteKeyW(HKEY_CURRENT_USER, userKey);
+        RemoveDirectoryTree(path);
     }
 
-    if (GetEnvironmentVariableW(L"APPDATA", base, _countof(base)) != 0)
+    if (SUCCEEDED(StringCchPrintfW(regPath, _countof(regPath), L"SYSTEM\\CurrentControlSet\\Services\\%ls", LEGACY_APP_NAME)))
     {
-        if (SUCCEEDED(StringCchPrintfW(path, _countof(path), L"%ls\\DeskLink\\config\\DeskLink2.toml", base)))
-        {
-            StripLegacyServerOptions(path);
-        }
+        SHDeleteKeyW(HKEY_LOCAL_MACHINE, regPath);
+    }
+    if (SUCCEEDED(StringCchPrintfW(regPath, _countof(regPath), L"Software\\%ls", LEGACY_APP_NAME)))
+    {
+        SHDeleteKeyW(HKEY_CURRENT_USER, regPath);
+    }
+
+    base[0] = L'\0';
+    if (GetEnvironmentVariableW(L"APPDATA", base, _countof(base)) != 0 &&
+        SUCCEEDED(StringCchPrintfW(path, _countof(path), L"%ls\\DeskLink\\config\\DeskLink2.toml", base)))
+    {
+        StripLegacyServerOptions(path);
     }
 
 LExit:
