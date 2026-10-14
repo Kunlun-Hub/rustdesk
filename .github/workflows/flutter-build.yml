@@ -13,7 +13,8 @@ on:
         type: string
         default: "1.4.9"
       # Skip every non-Windows job so a manual dispatch can build only the
-      # Windows Flutter client (matrix: x86_64 + aarch64 MSVC).
+      # Windows Flutter client (matrix: x86_64 MSVC only; Windows-on-ARM is
+      # no longer built).
       only-windows:
         type: boolean
         default: false
@@ -114,10 +115,6 @@ jobs:
               target: windows-2022,
               platform: x64,
             }
-          - {
-              target: windows-11-arm,
-              platform: ARM64,
-            }
     with:
       upload-artifact: ${{ inputs.upload-artifact }}
       target: ${{ matrix.job.target }}
@@ -143,16 +140,6 @@ jobs:
               flutter-arch: x64,
               vcpkg-triplet: x64-windows-static,
               build-args: "--vram",
-            }
-          - {
-              target: aarch64-pc-windows-msvc,
-              os: windows-11-arm,
-              arch: aarch64,
-              flutter-arch: arm64,
-              vcpkg-triplet: arm64-windows-static,
-              # vram is x86/x64-only (NVENC needs CUDA, Intel MediaSDK needs __rdtsc);
-              # no NV/Intel/AMD hardware exists on Windows-on-ARM, so vram stays disabled here.
-              build-args: "",
             }
     steps:
       - name: Export GitHub Actions cache environment variables
@@ -1479,14 +1466,6 @@ jobs:
               deb_arch: amd64,
               vcpkg-triplet: x64-linux,
             }
-          - {
-              arch: aarch64,
-              target: aarch64-unknown-linux-gnu,
-              distro: ubuntu18.04,
-              on: ubuntu-22.04-arm,
-              deb_arch: arm64,
-              vcpkg-triplet: arm64-linux,
-            }
     steps:
       - name: Export GitHub Actions cache environment variables
         uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
@@ -2107,16 +2086,6 @@ jobs:
               vcpkg-triplet: x64-linux,
               extra_features: ",hwcodec,unix-file-copy-paste",
             }
-          - {
-              arch: armv7,
-              target: armv7-unknown-linux-gnueabihf,
-              on: ubuntu-22.04-arm,
-              distro: ubuntu18.04-rustdesk,
-              deb_arch: armhf,
-              sciter_arch: arm32,
-              vcpkg-triplet: arm-linux,
-              extra_features: ",unix-file-copy-paste",
-            }
     steps:
       - name: Export GitHub Actions cache environment variables
         uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
@@ -2333,7 +2302,6 @@ jobs:
       matrix:
         job:
           - { target: x86_64-unknown-linux-gnu, arch: x86_64 }
-          - { target: aarch64-unknown-linux-gnu, arch: aarch64 }
     steps:
       - name: Checkout source code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -2408,14 +2376,6 @@ jobs:
               on: ubuntu-22.04,
               arch: x86_64,
               suffix: "-sciter",
-            }
-          - {
-              target: aarch64-unknown-linux-gnu,
-              # try out newer flatpak since error of "error: Nothing matches org.freedesktop.Platform in remote flathub"
-              distro: ubuntu22.04,
-              on: ubuntu-22.04-arm,
-              arch: aarch64,
-              suffix: "",
             }
     steps:
       - name: Checkout source code
