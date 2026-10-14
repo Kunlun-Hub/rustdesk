@@ -8,22 +8,34 @@ upstream RustDesk repository and must not receive DeskLink product changes.
 
 ## Current Release
 
-- Latest release tag: `zto64`
-- Release: `https://github.com/Kunlun-Hub/rustdesk/releases/tag/zto64`
-- Windows workflow run `38385293963` (`only-windows`, commit `f6b481ff8`);
-  the non-Windows packages come from run `38391634131` (`skip-windows`, commit
-  `8fefcd4f4`), which reuses the same tag.
-- Product commit: `f6b481ff8`; `libs/hbb_common` commit: `ef932e9`
+- Latest release tag: `zto67`
+- Release: `https://github.com/Kunlun-Hub/rustdesk/releases/tag/zto67`
+- Full-matrix run `38520156623` (commit `a2f90e87e`) built x86_64 Windows,
+  x86_64 Linux and macOS (Intel + Apple Silicon). The only failing job is the
+  pre-existing `i686-pc-windows-msvc` Sciter fallback (see Build Targets).
+- Product commit: `a2f90e87e`; `libs/hbb_common` commit: `ef932e9`
 - Deployed on the DeskLink `/install/` page (10.202.22.91) as the combined
   DeskLink + Agent package:
-  - `desklink-zto64-x86_64-install.exe` 28,876,288 B,
-    `aebc7ad068e1b0f7bf2856df9abd82b6b65a4855ae7ef136980f261351e0d0dc`
-  - `desklink-zto64-x86_64.deb` 26,775,028 B,
-    `9db40bc58b7c822282236533146a7d3e6f8516dda6190711566aef910ee65159`
-- All installable assets use the `desklink-zto64-*` prefix. `desklink.sbom.json`
+  - `desklink-zto67-x86_64-install.exe` 28,879,872 B,
+    `22581976f3d07a5c3ead118e3d3f8afd86b82b6c63e83a870b52d1ea96c4cc37`
+  - `desklink-zto67-x86_64.deb` 26,783,240 B,
+    `c2d0c09e0b1549dfbe5a59d353a32d9fdd55d198b3a711051d054ca5eed92e6c`
+- macOS: `desklink-zto67-x86_64.dmg` (Intel) and `desklink-zto67-aarch64.dmg`
+  (Apple Silicon).
+- The combined package embeds agent `0.9.3`, served from the
+  `phase1-agent-0.9.3` release as `hostagent-desklink-setup-0.9.3.exe`
+  (4,812,871 B,
+  `2f0e5781e076b8390f992f474956e36209c24a5b2a4d406d8d0893b55cfe958d`) and
+  `hostagent-desklink_0.9.3_amd64.deb`. The GitHub Actions variables
+  `DESKLINK_AGENT_SETUP_URL` / `DESKLINK_AGENT_DEB_URL` point at that release.
+- The EXE payload holds 106 entries including `.\desklink-agent-setup.exe` and
+  the 75 `data\flutter_assets\*` files, and the bundled setup is byte-identical
+  to the independently published installer, so the `29183a7c6` regression
+  cannot recur silently.
+- All installable assets use the `desklink-zto67-*` prefix. `desklink.sbom.json`
   is metadata and is the only intentional naming exception.
-- The retired `phase1-*` tags are superseded. They are only kept as intermediate
-  builds; do not hand them out as the DeskLink package.
+- The retired `phase1-*` and `zto6[0-6]` tags are superseded. They are only kept
+  as intermediate builds; do not hand them out as the DeskLink package.
 
 Treat this section as a snapshot. Verify GitHub and Git state before claiming it
 is still current.
@@ -164,9 +176,12 @@ verified to contain the exact independently published Agent installers:
 
 The `/install/` page now serves the same `1.0.1-desklink.1` Agent for Windows
 and Linux. This release also makes the Windows EXE uninstaller delete
-`%APPDATA%\DeskLink`; upgrades keep the configuration. Because older RustDesk
-builds retained only a salted permanent password hash, an upgraded machine must
-set the permanent password once before it can report that value.
+`%APPDATA%\DeskLink`. The installer must not: `install_me` reuses the same
+uninstall commands to replace an existing installation, so until `dd460ddb1`
+every install and upgrade wiped the client ID and password with it. Because
+older RustDesk builds retained only a salted permanent password hash, an
+upgraded machine must set the permanent password once before it can report that
+value.
 
 ## Installer: retiring the old client and its servers
 
@@ -201,6 +216,13 @@ dialled `10.250` until the cache was dropped.
 A user-configured server survives: it lives in the `custom-rendezvous-server`
 option, which is only dropped when it names a retired host.
 
+An install or upgrade keeps `%APPDATA%\DeskLink` too. `get_uninstall` takes a
+`remove_user_config` flag (`app_config_cleanup_cmd` builds the `rd /s /q` line
+for it): `uninstall_me` passes `true`, `install_me` passes `false`, so the
+retired-server cleanup above still runs while the ID and password survive.
+The MSI path already behaved that way - `CleanLegacyRustDesk` only strips
+retired server options out of `DeskLink2.toml` and never deletes the folder.
+
 ## Rebuilding only the non-Windows packages
 
 `flutter-tag.yml` (workflow_dispatch) forwards `skip-windows` to
@@ -208,6 +230,26 @@ option, which is only dropped when it names a retired host.
 `skip-windows=true` rebuilds the Linux/Android/Apple packages under an existing
 tag without re-uploading the Windows installer, which is how the `.deb` is
 refreshed after a Windows-only release. `only-windows=true` is the mirror case.
+
+## Build Targets
+
+The release matrix is x86_64 Windows, x86_64 Linux and macOS (Intel and Apple
+Silicon). Windows-on-ARM (`aarch64-pc-windows-msvc`), Linux aarch64
+(`build-rustdesk-linux`, `build-appimage`, `build-flatpak`) and the Linux armv7
+Sciter package were dropped in `a2f90e87e` because there is no ARM hardware to
+validate them. The ARM64 topmost-window helper was dropped with them. Android
+(arm64-v8a / armeabi-v7a / x86 / x86_64) and iOS are unchanged.
+
+Two known failures predate that change and are not caused by it:
+
+- `i686-pc-windows-msvc` (the 32-bit Sciter fallback) fails at `Install Rust
+  toolchain`: the job asks for a toolchain literally named
+  `nightly-2023-10-13-i686-pc-windows-msvc`, and current rustup refuses to
+  install a non-host toolchain without `--force-non-host`. `publish_unsigned`
+  depends on that job, so `desklink-<tag>-unsigned.tar.gz` is not produced.
+  `zto64` had the same two gaps.
+- The macOS Intel job can fail in `Install vcpkg dependencies` when
+  `git fetch https://aomedia.googlesource.com/aom` returns HTTP 503; retry.
 
 ## Submodule Workflow
 
