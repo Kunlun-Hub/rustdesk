@@ -1598,7 +1598,29 @@ fn get_desklink_agent_install(exe: &str) -> String {
     if validate_install_value(&setup).is_err() {
         return String::new();
     }
-    format!("if exist \"{setup}\" \"{setup}\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-")
+    let stage = get_desklink_agent_stage(&setup);
+    format!("{stage}if exist \"{setup}\" \"{setup}\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-")
+}
+
+/// The `copy` that pulls the bundled setup out of the directory the
+/// self-extracting installer unpacked into and drops it beside the installed
+/// client, which is where `get_desklink_agent_install` looks for it. Without
+/// it the `if exist` never matched and the combined package installed DeskLink
+/// on its own. Empty when there is nothing to stage: a DeskLink-only build
+/// ships no setup file, and `--after-install` runs from the installed client,
+/// which already holds the copy.
+fn get_desklink_agent_stage(setup: &str) -> String {
+    let Some(src) = std::env::current_exe()
+        .ok()
+        .and_then(|cur| cur.parent().map(|dir| dir.join(DESKLINK_AGENT_SETUP_FILE)))
+        .and_then(|path| path.to_str().map(str::to_owned))
+    else {
+        return String::new();
+    };
+    if src == setup || validate_install_value(&src).is_err() {
+        return String::new();
+    }
+    format!("if exist \"{src}\" copy /Y \"{src}\" \"{setup}\"\n")
 }
 
 pub fn install_me(options: &str, path: String, silent: bool, debug: bool) -> ResultType<()> {
