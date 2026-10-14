@@ -317,6 +317,10 @@ impl RecordUploader {
     }
 
     fn handle_new_file(&mut self, filepath: String) -> ResultType<()> {
+        // 录制器换文件（会话重建 / 分屏切换）时上一个 upload_id 永远不会再收到
+        // complete：不取消就会在服务端留下一条一直「上传中」的录像。先撤掉它，
+        // 失败也不影响新文件的上传（服务端的过期清理还会兜底）。
+        self.cancel_previous_upload();
         match std::path::PathBuf::from(&filepath).file_name() {
             Some(filename) => match filename.to_owned().into_string() {
                 Ok(filename) => {
@@ -483,5 +487,34 @@ impl RecordUploader {
         }
         self.running = false;
         Ok(())
+    }
+
+    /// 取消上一个尚未结束的上传（仅记日志，不把失败传给调用方）。
+    fn cancel_previous_upload(&mut self) {
+        if !self.initialized || self.upload_id.is_empty() || self.upload_token.is_empty() {
+            return;
+        }
+        let upload_id = self.upload_id.clone();
+        match self
+            .client
+            .delete(format!("{}/api/recordings/{}", self.api_server, upload_id))
+            .header("X-Upload-Token", &self.upload_token)
+            .send()
+        {
+            Ok(response) if response.status().is_success() => {
+                log::info!("cancelled unfinished recording upload {}", upload_id);
+            }
+            Ok(response) => log::warn!(
+                "cancel unfinished recording upload {} failed: {}",
+                upload_id,
+                response.status()
+            ),
+            Err(err) => log::warn!(
+                "cancel unfinished recording upload {} failed: {}",
+                upload_id,
+                err
+            ),
+        }
+        self.initialized = false;
     }
 }
