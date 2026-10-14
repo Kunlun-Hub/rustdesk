@@ -1632,7 +1632,10 @@ pub fn install_me(options: &str, path: String, silent: bool, debug: bool) -> Res
     if get_windows_installer_state(&installed_subkey)? == Some(true) {
         bail!("Cannot install the EXE package over an existing MSI installation");
     }
-    let uninstall_str = get_uninstall(false, false)?;
+    // The install script runs the uninstall commands first to stop and remove
+    // the previous version, but it must not clear `%APPDATA%\DeskLink`: that
+    // folder holds the ID and password an upgrade has to keep.
+    let uninstall_str = get_uninstall(false, false, false)?;
     // Preview DeskLink builds pinned the retired 10.250 / 22.90 servers in the
     // saved options, and a leftover RustDesk install keeps its own service and
     // config folder. Both make the freshly installed client register on the
@@ -1986,12 +1989,19 @@ fn is_same_directory(left: Option<&Path>, right: Option<&Path>) -> bool {
 ///   the current process as well. If `false`, it will exclude the current process from the kill
 ///   command.
 /// - `uninstall_printer`: If `true`, includes commands to uninstall the remote printer.
+/// - `remove_user_config`: If `true`, removes `%APPDATA%\<app>`. `install_me` reuses this
+///   script to replace an existing installation and passes `false` so the DeskLink ID and
+///   password survive an upgrade; only a real uninstall clears the per-user configuration.
 ///
 /// # Details
 /// The `uninstall_printer` parameter determines whether the command to uninstall the remote printer
 /// is included in the generated uninstall script. If `uninstall_printer` is `false`, the printer
 /// related command is omitted from the script.
-fn get_uninstall(kill_self: bool, uninstall_printer: bool) -> ResultType<String> {
+fn get_uninstall(
+    kill_self: bool,
+    uninstall_printer: bool,
+    remove_user_config: bool,
+) -> ResultType<String> {
     let (subkey, path, start_menu, _) = get_install_info();
     let installer_state = get_windows_installer_state(&subkey)?;
     if let Some(product_code) = get_msi_product_code(&subkey, installer_state)? {
@@ -2000,6 +2010,7 @@ fn get_uninstall(kill_self: bool, uninstall_printer: bool) -> ResultType<String>
     if installer_state == Some(true) {
         bail!("MSI product code was not found in {subkey}");
     }
+    let app_name = crate::get_app_name();
 
     let mut uninstall_cert_cmd = "".to_string();
     let mut uninstall_printer_cmd = "".to_string();
@@ -2011,6 +2022,7 @@ fn get_uninstall(kill_self: bool, uninstall_printer: bool) -> ResultType<String>
             }
         }
     }
+    let remove_user_config_cmd = app_config_cleanup_cmd(&app_name, remove_user_config);
     Ok(format!(
         "
     {before_uninstall}
@@ -2018,7 +2030,7 @@ fn get_uninstall(kill_self: bool, uninstall_printer: bool) -> ResultType<String>
     {uninstall_cert_cmd}
     reg delete {subkey} /f
     {uninstall_amyuni_idd}
-    if exist \"%APPDATA%\\{app_name}\" rd /s /q \"%APPDATA%\\{app_name}\"
+    {remove_user_config_cmd}
     if exist \"{path}\" rd /s /q \"{path}\"
     if exist \"{start_menu}\" rd /s /q \"{start_menu}\"
     if exist \"%PUBLIC%\\Desktop\\{app_name}.lnk\" del /f /q \"%PUBLIC%\\Desktop\\{app_name}.lnk\"
@@ -2026,12 +2038,25 @@ fn get_uninstall(kill_self: bool, uninstall_printer: bool) -> ResultType<String>
     ",
         before_uninstall=get_before_uninstall(kill_self),
         uninstall_amyuni_idd=get_uninstall_amyuni_idd(),
-        app_name = crate::get_app_name(),
+        remove_user_config_cmd=remove_user_config_cmd,
+        app_name = app_name,
     ))
 }
 
+/// The command that removes the per-user configuration folder, or an empty
+/// string when the caller has to keep it. `install_me` reuses the uninstall
+/// script to replace an existing installation, and deleting
+/// `%APPDATA%\<app>` there would take the DeskLink ID and password with it.
+fn app_config_cleanup_cmd(app_name: &str, remove_user_config: bool) -> String {
+    if remove_user_config {
+        format!("if exist \"%APPDATA%\\{app_name}\" rd /s /q \"%APPDATA%\\{app_name}\"")
+    } else {
+        String::new()
+    }
+}
+
 pub fn uninstall_me(kill_self: bool) -> ResultType<()> {
-    run_cmds(get_uninstall(kill_self, true)?, true, "uninstall")
+    run_cmds(get_uninstall(kill_self, true, true)?, true, "uninstall")
 }
 
 fn write_vbs(cmds: String, tip: &str) -> ResultType<PathBuf> {
@@ -4941,6 +4966,18 @@ mod tests {
         ));
         assert!(!is_same_directory(None, Some(extraction)));
         assert!(!is_same_directory(Some(extraction), None));
+    }
+
+    #[test]
+    fn upgrade_keeps_the_per_user_config_folder() {
+        let upgrade = app_config_cleanup_cmd("DeskLink", false);
+        assert!(
+            upgrade.is_empty(),
+            "an install or upgrade must keep the ID and password: {upgrade}"
+        );
+        let uninstall = app_config_cleanup_cmd("DeskLink", true);
+        assert!(uninstall.contains(r"%APPDATA%\DeskLink"));
+        assert!(uninstall.starts_with("if exist"));
     }
 
     #[test]
