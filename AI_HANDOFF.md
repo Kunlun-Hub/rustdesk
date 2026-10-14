@@ -129,7 +129,12 @@ Installer integration:
   setup from `DESKLINK_AGENT_SETUP_URL` (supports `{arch}` / `{msi_arch}`).
   The self-extracted DeskLink `-install.exe` carries it as
   `desklink-agent-setup.exe` and runs it from the elevated install script after
-  DeskLink service registration. The MSI embeds the same setup in
+  DeskLink service registration. The setup file is unpacked beside the
+  *extracted* client (`%LOCALAPPDATA%\rustdesk`), never into the install
+  directory, so the script has to copy it across before running it
+  (`get_desklink_agent_stage`); without that copy the `if exist` guard matches
+  nothing and the combined package silently installs DeskLink alone - the zto64
+  Windows EXE shipped exactly that bug. The MSI embeds the same setup in
   `res/msi/preprocess.py` and runs it on every install/upgrade. The Agent
   installer decides whether to install or upgrade; a stale HostAgent uninstall
   registry entry must not make DeskLink skip it.
