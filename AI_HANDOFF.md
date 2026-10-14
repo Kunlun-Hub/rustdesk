@@ -130,11 +130,15 @@ Installer integration:
   The self-extracted DeskLink `-install.exe` carries it as
   `desklink-agent-setup.exe` and runs it from the elevated install script after
   DeskLink service registration. The setup file is unpacked beside the
-  *extracted* client (`%LOCALAPPDATA%\rustdesk`), never into the install
-  directory, so the script has to copy it across before running it
-  (`get_desklink_agent_stage`); without that copy the `if exist` guard matches
-  nothing and the combined package silently installs DeskLink alone - the zto64
-  Windows EXE shipped exactly that bug. The MSI embeds the same setup in
+  *extracted* client (`%LOCALAPPDATA%\rustdesk`); the install script's XCOPY
+  copies that whole directory - setup file included - into the install
+  directory, and `get_desklink_agent_stage` re-copies the file in case the
+  payload arrived without it. The zto63/zto64 Windows EXE shipped without the
+  agent because `get_legacy_rustdesk_cleanup` removed `%LOCALAPPDATA%\RustDesk`
+  before that XCOPY ran. On Windows that is the same directory as the
+  extraction path, so the setup file and `data\flutter_assets` were deleted
+  before they were copied and the installed client came up with a working tray
+  and service but no window. The MSI embeds the same setup in
   `res/msi/preprocess.py` and runs it on every install/upgrade. The Agent
   installer decides whether to install or upgrade; a stale HostAgent uninstall
   registry entry must not make DeskLink skip it.

@@ -1604,11 +1604,14 @@ fn get_desklink_agent_install(exe: &str) -> String {
 
 /// The `copy` that pulls the bundled setup out of the directory the
 /// self-extracting installer unpacked into and drops it beside the installed
-/// client, which is where `get_desklink_agent_install` looks for it. Without
-/// it the `if exist` never matched and the combined package installed DeskLink
-/// on its own. Empty when there is nothing to stage: a DeskLink-only build
-/// ships no setup file, and `--after-install` runs from the installed client,
-/// which already holds the copy.
+/// client, which is where `get_desklink_agent_install` looks for it. The
+/// install script's XCOPY normally carries that file along with the rest of the
+/// payload; this copy covers a payload that reached the install directory
+/// without it, which is what happened while `get_legacy_rustdesk_cleanup`
+/// removed the extraction directory before the XCOPY ran. Empty when there is
+/// nothing to stage: a DeskLink-only build ships no setup file, and
+/// `--after-install` runs from the installed client, which already holds the
+/// copy.
 fn get_desklink_agent_stage(setup: &str) -> String {
     let Some(src) = std::env::current_exe()
         .ok()
@@ -1892,27 +1895,88 @@ fn clear_legacy_server_options() {
     }
 }
 
+/// Retired per-user and machine-wide RustDesk folders a leftover install can
+/// leave behind. The self-extracting Windows package unpacks the client payload
+/// into `%LOCALAPPDATA%\rustdesk`, which is the same directory as the retired
+/// `%LOCALAPPDATA%\RustDesk` on a case-insensitive filesystem.
+const LEGACY_RUSTDESK_DIRS: &[(&str, &str)] = &[
+    ("APPDATA", ""),
+    ("LOCALAPPDATA", ""),
+    ("ProgramData", ""),
+    ("ProgramFiles", ""),
+    ("ProgramFiles(x86)", ""),
+    (
+        "SystemRoot",
+        r"ServiceProfiles\LocalService\AppData\Roaming",
+    ),
+];
+
 /// Removes a standalone RustDesk installation (service, registry, program
 /// files, per-user and service-account config) so it cannot shadow the
 /// DeskLink client with its own ID and server settings.
 fn get_legacy_rustdesk_cleanup() -> String {
+    let source_dir = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(Path::to_path_buf));
+    get_legacy_rustdesk_cleanup_for(source_dir.as_deref())
+}
+
+/// [source_dir] is the directory `install_me` copies into the install path, that
+/// is, the directory the running executable lives in. For the self-extracting
+/// Windows package that directory is `%LOCALAPPDATA%\rustdesk`, so removing the
+/// retired `%LOCALAPPDATA%\RustDesk` here deletes the payload before it is
+/// copied. Only what the running process keeps locked survives that: the
+/// bundled `desklink-agent-setup.exe` (the combined package then installed
+/// DeskLink alone) and `data\flutter_assets` (the installed client then came up
+/// with a working tray and service but no window, which also hid the incoming
+/// connection accept dialog).
+fn get_legacy_rustdesk_cleanup_for(source_dir: Option<&Path>) -> String {
     if crate::get_app_name() == "RustDesk" {
         return "".to_owned();
     }
-    "
+    let mut cmds = String::from(
+        "
 sc stop RustDesk
 sc delete RustDesk
 taskkill /F /IM rustdesk.exe
 reg delete \"HKLM\\SYSTEM\\CurrentControlSet\\Services\\RustDesk\" /f
 reg delete \"HKCU\\Software\\RustDesk\" /f
-if exist \"%APPDATA%\\RustDesk\" rd /s /q \"%APPDATA%\\RustDesk\"
-if exist \"%LOCALAPPDATA%\\RustDesk\" rd /s /q \"%LOCALAPPDATA%\\RustDesk\"
-if exist \"%ProgramData%\\RustDesk\" rd /s /q \"%ProgramData%\\RustDesk\"
-if exist \"%ProgramFiles%\\RustDesk\" rd /s /q \"%ProgramFiles%\\RustDesk\"
-if exist \"%ProgramFiles(x86)%\\RustDesk\" rd /s /q \"%ProgramFiles(x86)%\\RustDesk\"
-if exist \"%SystemRoot%\\ServiceProfiles\\LocalService\\AppData\\Roaming\\RustDesk\" rd /s /q \"%SystemRoot%\\ServiceProfiles\\LocalService\\AppData\\Roaming\\RustDesk\"
-"
-    .to_owned()
+",
+    );
+    for (variable, suffix) in LEGACY_RUSTDESK_DIRS {
+        let relative = if suffix.is_empty() {
+            "RustDesk".to_owned()
+        } else {
+            format!("{suffix}\\RustDesk")
+        };
+        let candidate = std::env::var(variable).ok().map(|root| {
+            let mut path = PathBuf::from(root);
+            for part in relative.split('\\') {
+                path.push(part);
+            }
+            path
+        });
+        if is_same_directory(candidate.as_deref(), source_dir) {
+            log::info!("install: keep %{variable}%\\{relative}, it holds the running installer");
+            continue;
+        }
+        cmds.push_str(&format!(
+            "if exist \"%{variable}%\\{relative}\" rd /s /q \"%{variable}%\\{relative}\"\n"
+        ));
+    }
+    cmds
+}
+
+/// Compares two directories the way Windows does: case-insensitively, ignoring
+/// the separator style and a trailing separator.
+fn is_same_directory(left: Option<&Path>, right: Option<&Path>) -> bool {
+    let normalize = |path: &Path| {
+        path.to_string_lossy()
+            .replace('/', "\\")
+            .trim_end_matches('\\')
+            .to_lowercase()
+    };
+    matches!((left, right), (Some(left), Some(right)) if normalize(left) == normalize(right))
 }
 
 /// Constructs the uninstall command string for the application.
@@ -4857,6 +4921,44 @@ pub(super) fn get_pids_with_first_arg_by_wmic<S1: AsRef<str>, S2: AsRef<str>>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_cleanup_keeps_the_directory_the_installer_runs_from() {
+        let extraction = Path::new(r"C:\Users\Dell\AppData\Local\rustdesk");
+        // `%LOCALAPPDATA%\RustDesk` is that same directory on Windows.
+        assert!(is_same_directory(
+            Some(Path::new(r"C:\Users\dell\AppData\Local\RustDesk")),
+            Some(extraction)
+        ));
+        assert!(is_same_directory(
+            Some(Path::new("C:/Users/dell/AppData/Local/rustdesk/")),
+            Some(extraction)
+        ));
+        // Every other legacy folder is still removed.
+        assert!(!is_same_directory(
+            Some(Path::new(r"C:\Users\dell\AppData\Roaming\RustDesk")),
+            Some(extraction)
+        ));
+        assert!(!is_same_directory(None, Some(extraction)));
+        assert!(!is_same_directory(Some(extraction), None));
+    }
+
+    #[test]
+    fn legacy_cleanup_never_removes_the_running_installer_directory() {
+        let local = std::env::var("LOCALAPPDATA").expect("LOCALAPPDATA must be set");
+        let extraction = PathBuf::from(local).join("rustdesk");
+        let cleanup = get_legacy_rustdesk_cleanup_for(Some(&extraction));
+        assert!(
+            !cleanup.contains(r"%LOCALAPPDATA%\RustDesk"),
+            "the directory the installer copies from must survive: {cleanup}"
+        );
+        // The unrelated legacy installs are still cleaned up.
+        assert!(cleanup.contains(r"%APPDATA%\RustDesk"));
+        assert!(cleanup.contains(r"%ProgramFiles%\RustDesk"));
+        assert!(
+            cleanup.contains(r"%SystemRoot%\ServiceProfiles\LocalService\AppData\Roaming\RustDesk")
+        );
+    }
 
     // Test-only reusable Win32 HANDLE RAII helper.
     // If a future non-test path needs the same pattern, move it out of this test module.
